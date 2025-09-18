@@ -7,6 +7,7 @@ import { ProductCard } from "./components/ProductCard";
 import { WeightAdjuster } from "./components/WeightAdjuster";
 import { MatchScore } from "./components/MatchScore";
 import logoMD from "./assets/logoMD.png";
+import Login from "./components/Login";
 
 /**
  * ---------------------------------------------
@@ -90,6 +91,13 @@ function adivinarColumnas(cabecera) {
 }
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handleLoginSuccess = (user) => {
+    console.log("Usuario logueado:", user);
+    setIsAuthenticated(true);
+  };
+
   // Referencias para los inputs de archivo
   const inputFicheroReferencia = useRef(null);
   const inputFicheroMatching = useRef(null);
@@ -304,11 +312,50 @@ export default function App() {
     saveAs(blob, "productos_matcheados.xlsx");
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('userSession');
+    setIsAuthenticated(false);
+  };
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>
         Matching de Productos Excel vs Excel
       </h1>
+
+      {/* Botón de cerrar sesión */}
+      <button
+        onClick={handleLogout}
+        style={{
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          background: "#dc3545",
+          color: "white",
+          border: "none",
+          padding: "10px 20px",
+          borderRadius: "5px",
+          fontSize: "1rem",
+          fontWeight: "bold",
+          cursor: "pointer",
+          transition: "all 0.3s ease",
+          boxShadow: "0 4px 15px rgba(220, 53, 69, 0.4)"
+        }}
+        onMouseOver={(e) => {
+          e.target.style.transform = "translateY(-2px)";
+          e.target.style.boxShadow = "0 6px 20px rgba(220, 53, 69, 0.6)";
+        }}
+        onMouseOut={(e) => {
+          e.target.style.transform = "translateY(0)";
+          e.target.style.boxShadow = "0 4px 15px rgba(220, 53, 69, 0.4)";
+        }}
+      >
+        🔒 Cerrar Sesión
+      </button>
 
       {/* Bloque: Cargar Excels */}
       <div style={styles.card}>
