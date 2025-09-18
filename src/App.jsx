@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { styles } from "./styles";
@@ -92,6 +92,7 @@ function adivinarColumnas(cabecera) {
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const handleLoginSuccess = (user) => {
     console.log("Usuario logueado:", user);
@@ -312,10 +313,85 @@ export default function App() {
     saveAs(blob, "productos_matcheados.xlsx");
   }
 
+  // Mantener sesión y progreso al recargar la página
+  useEffect(() => {
+    const userSession = localStorage.getItem('userSession');
+    const savedMatches = localStorage.getItem('matchesSeleccionados');
+    const savedReferencia = localStorage.getItem('filasReferencia');
+    const savedMatching = localStorage.getItem('filasMatching');
+    const savedColumnasReferencia = localStorage.getItem('columnasReferencia');
+    const savedColumnasMatching = localStorage.getItem('columnasMatching');
+    const savedIndiceActual = localStorage.getItem('indiceActual');
+
+    if (userSession) {
+      setIsAuthenticated(true);
+    }
+
+    if (savedMatches) {
+      setMatchesSeleccionados(new Map(JSON.parse(savedMatches)));
+    }
+
+    if (savedReferencia) {
+      setFilasReferencia(JSON.parse(savedReferencia));
+    }
+
+    if (savedMatching) {
+      setFilasMatching(JSON.parse(savedMatching));
+    }
+
+    if (savedColumnasReferencia) {
+      setColumnasReferencia(JSON.parse(savedColumnasReferencia));
+    }
+
+    if (savedColumnasMatching) {
+      setColumnasMatching(JSON.parse(savedColumnasMatching));
+    }
+
+    if (savedIndiceActual) {
+      setIndiceActual(Number(savedIndiceActual));
+    }
+
+    setIsLoading(false);
+  }, []);
+
+  // Guardar progreso en localStorage
+  useEffect(() => {
+    if (isAuthenticated) {
+      localStorage.setItem('matchesSeleccionados', JSON.stringify(Array.from(matchesSeleccionados.entries())));
+      localStorage.setItem('filasReferencia', JSON.stringify(filasReferencia));
+      localStorage.setItem('filasMatching', JSON.stringify(filasMatching));
+      localStorage.setItem('columnasReferencia', JSON.stringify(columnasReferencia));
+      localStorage.setItem('columnasMatching', JSON.stringify(columnasMatching));
+      localStorage.setItem('indiceActual', indiceActual);
+    }
+  }, [isAuthenticated, matchesSeleccionados, filasReferencia, filasMatching, columnasReferencia, columnasMatching, indiceActual]);
+
   const handleLogout = () => {
     localStorage.removeItem('userSession');
     setIsAuthenticated(false);
   };
+
+  const handleClearSession = () => {
+    const confirmClear = window.confirm("¿Seguro que quieres reiniciar el proceso? Se perderá todo el progreso actual.");
+    if (confirmClear) {
+      localStorage.removeItem('matchesSeleccionados');
+      localStorage.removeItem('filasReferencia');
+      localStorage.removeItem('filasMatching');
+      localStorage.removeItem('columnasReferencia');
+      localStorage.removeItem('columnasMatching');
+      localStorage.removeItem('indiceActual');
+      setFilasReferencia([]);
+      setFilasMatching([]);
+      setColumnasReferencia(null);
+      setColumnasMatching(null);
+      setIndiceActual(0);
+      setMatchesSeleccionados(new Map());
+    }
+  };
+
+  if (isLoading) {
+    return <div style={{ textAlign: 'center', marginTop: '20%' }}>Cargando...</div>;
+  }
 
   if (!isAuthenticated) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
@@ -327,35 +403,59 @@ export default function App() {
         Matching de Productos Excel vs Excel
       </h1>
 
-      {/* Botón de cerrar sesión */}
-      <button
-        onClick={handleLogout}
-        style={{
-          position: "absolute",
-          top: "10px",
-          right: "10px",
-          background: "#dc3545",
-          color: "white",
-          border: "none",
-          padding: "10px 20px",
-          borderRadius: "5px",
-          fontSize: "1rem",
-          fontWeight: "bold",
-          cursor: "pointer",
-          transition: "all 0.3s ease",
-          boxShadow: "0 4px 15px rgba(220, 53, 69, 0.4)"
-        }}
-        onMouseOver={(e) => {
-          e.target.style.transform = "translateY(-2px)";
-          e.target.style.boxShadow = "0 6px 20px rgba(220, 53, 69, 0.6)";
-        }}
-        onMouseOut={(e) => {
-          e.target.style.transform = "translateY(0)";
-          e.target.style.boxShadow = "0 4px 15px rgba(220, 53, 69, 0.4)";
-        }}
-      >
-        🔒 Cerrar Sesión
-      </button>
+      {/* Botones de sesión */}
+      <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "10px" }}>
+        <button
+          onClick={handleLogout}
+          style={{
+            background: "#dc3545",
+            color: "white",
+            border: "none",
+            padding: "10px 20px",
+            borderRadius: "5px",
+            fontSize: "1rem",
+            fontWeight: "bold",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+            boxShadow: "0 4px 15px rgba(220, 53, 69, 0.4)"
+          }}
+          onMouseOver={(e) => {
+            e.target.style.transform = "translateY(-2px)";
+            e.target.style.boxShadow = "0 6px 20px rgba(220, 53, 69, 0.6)";
+          }}
+          onMouseOut={(e) => {
+            e.target.style.transform = "translateY(0)";
+            e.target.style.boxShadow = "0 4px 15px rgba(220, 53, 69, 0.4)";
+          }}
+        >
+          🔒 Cerrar Sesión
+        </button>
+        <button
+          onClick={handleClearSession}
+          style={{
+            background: "#ffc107",
+            color: "#212529",
+            border: "none",
+            padding: "10px 20px",
+            borderRadius: "5px",
+            fontSize: "1rem",
+            fontWeight: "bold",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+            boxShadow: "0 4px 15px rgba(255, 193, 7, 0.4)"
+          }}
+          onMouseOver={(e) => {
+            e.target.style.transform = "translateY(-2px)";
+            e.target.style.boxShadow = "0 6px 20px rgba(255, 193, 7, 0.6)";
+          }}
+          onMouseOut={(e) => {
+            e.target.style.transform = "translateY(0)";
+            e.target.style.boxShadow = "0 4px 15px rgba(255, 193, 7, 0.4)";
+          }}
+        >
+          🔄 Reiniciar Proceso
+        </button>
+      </div>
 
       {/* Bloque: Cargar Excels */}
       <div style={styles.card}>
