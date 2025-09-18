@@ -76,17 +76,18 @@ function adivinarColumnas(cabecera) {
     return fallback;
   }
   return {
-    CODIPROD: pick(["CODIPROD", "codiprod"], cabecera[0]),
-    Descripcion: pick(["Descripcion", "DESCRIPCION", "descripcion"], cabecera[1]),
-    Cantidad: pick(["Cantidad", "cantidad", "qty"], "Cantidad"),
-    Medida: pick(["Medida", "medida", "unidad", "unit"], "Medida"),
-    Formato: pick(["Formato", "formato"], "Formato"),
-    Unidades: pick(["Unidades", "unidades"], "Unidades"),
-    Marca: pick(["Marca", "marca", "brand"], "Marca"),
-    Sabor: pick(["Sabor", "sabor", "flavor"], "Sabor"),
-    EAN: pick(["EAN", "ean", "barcode", "codigo", "codbarras"], "EAN"),
-    CODIPROD_MACRO: pick(["CODIPROD_MACRO"], "CODIPROD_MACRO"),
-    DESCRIPCION_MACRO: pick(["DESCRIPCION_MACRO"], "DESCRIPCION_MACRO"),
+    ARCodi: pick(["arcodi"], cabecera[0]),
+    ARDesc: pick(["ardesc"], cabecera[1]),
+    Cantidad: pick(["cantidad", "qty"], "Cantidad"),
+    Medida: pick(["medida", "unidad", "unit"], "Medida"),
+    Formato: pick(["formato"], "Formato"),
+    Unidades: pick(["unidades"], "Unidades"),
+    Marca: pick(["marca", "brand"], "Marca"),
+    Sabor: pick(["sabor", "flavor"], "Sabor"),
+    EAN: pick(["ean", "barcode", "codigo", "codbarras"], "EAN"),
+    CODIPROD_MARKO: pick(["codiprod_marko"], "CODIPROD_MARKO"),
+    DESCRIPCION_MARKO: pick(["descripcion_marko"], "DESCRIPCION_MARKO"),
+    UNIDADES_MARKO: pick(["unidades_marko"], "UNIDADES_MARKO"),
   };
 }
 
@@ -271,8 +272,9 @@ export default function App() {
   function seleccionarMatch(productoMatch) {
     const nuevosMatches = new Map(matchesSeleccionados);
     nuevosMatches.set(indiceActual, {
-      codiprod: normalizarEAN(productoMatch[columnasMatching.EAN]),
-      descripcion: productoMatch[columnasMatching.Descripcion]
+      codiprod: normalizarEAN(productoMatch[columnasMatching.CODIPROD]),
+      descripcion: productoMatch[columnasMatching.DESCRIPCION],
+      unidades: productoMatch[columnasMatching.Unidades],
     });
     setMatchesSeleccionados(nuevosMatches);
   }
@@ -281,23 +283,14 @@ export default function App() {
   function exportarExcelMatcheado() {
     if (!filasReferencia.length || !columnasReferencia) return;
 
-    // Primero obtenemos las columnas válidas del primer registro
-    const columnasValidas = Object.keys(filasReferencia[0]).filter(key => 
-      !key.startsWith("_") && key !== "CODIPROD_MACRO" && key !== "DESCRIPCION_MACRO"
-    );
-
     const filasActualizadas = filasReferencia.map((fila, idx) => {
       const match = matchesSeleccionados.get(idx);
-      const filaLimpia = {};
-      
-      // Copiar solo las columnas válidas en el orden original
-      columnasValidas.forEach(key => {
-        filaLimpia[key] = fila[key];
-      });
+      const filaLimpia = { ...fila };
 
-      // Agregar las columnas de matching
-      filaLimpia["CODIPROD_MACRO"] = match?.codiprod ?? "";
-      filaLimpia["DESCRIPCION_MACRO"] = match?.descripcion ?? "";
+      // Rellenar las columnas de matching
+      filaLimpia[columnasReferencia.CODIPROD_MARKO] = match?.codiprod ?? "";
+      filaLimpia[columnasReferencia.DESCRIPCION_MARKO] = match?.descripcion ?? "";
+      filaLimpia[columnasReferencia.UNIDADES_MARKO] = match?.unidades ?? "";
 
       return filaLimpia;
     });
@@ -308,7 +301,7 @@ export default function App() {
 
     const wbout = XLSX.write(wb, { type: "array", bookType: "xlsx" });
     const blob = new Blob([wbout], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
     saveAs(blob, "productos_matcheados.xlsx");
   }
