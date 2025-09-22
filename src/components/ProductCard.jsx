@@ -12,7 +12,7 @@ export function ProductCard({ title, product, columns }) {
       <h3 style={{margin: "0 0 12px 0", color: "#334155", fontSize: "16px"}}>{title}</h3>
       <div style={{fontSize: "14px", lineHeight: "1.6"}}>
         <p style={{margin: "4px 0"}}><b>EAN:</b> {product[columns.EAN]}</p>
-        <p style={{margin: "4px 0"}}><b>Descripción:</b> {product[columns.Descripcion]}</p>
+        <p style={{margin: "4px 0"}}><b>Descripción:</b> {product[columns.ARDesc]}</p>
         <p style={{margin: "4px 0"}}>
           <b>Marca:</b> {product[columns.Marca]} |{" "}
           <b>Cantidad:</b> {product[columns.Cantidad]} {product[columns.Medida]}

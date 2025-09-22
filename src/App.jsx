@@ -42,26 +42,107 @@ function tokenizar(str) {
     .filter(Boolean);
 }
 
-/** Similitud Jaccard */
-function jaccard(tokensA, tokensB) {
+/** Calcula similitud entre dos palabras usando distancia de Levenshtein normalizada */
+function similitudPalabras(palabra1, palabra2) {
+  if (!palabra1 || !palabra2) return 0;
+  if (palabra1 === palabra2) return 1;
+  
+  // Solo considerar palabras de al menos 4 caracteres para evitar coincidencias falsas
+  if (palabra1.length < 4 || palabra2.length < 4) return 0;
+  
+  // Si una palabra está contenida en la otra, dar alta puntuación
+  if (palabra1.includes(palabra2) || palabra2.includes(palabra1)) {
+    const minLen = Math.min(palabra1.length, palabra2.length);
+    const maxLen = Math.max(palabra1.length, palabra2.length);
+    // Solo si la palabra más corta tiene al menos 4 caracteres
+    if (minLen >= 4) {
+      return minLen / maxLen * 0.8; // 80% de similitud si una contiene a la otra
+    }
+  }
+  
+  // Distancia de Levenshtein
+  const distancia = levenshtein(palabra1, palabra2);
+  const maxLen = Math.max(palabra1.length, palabra2.length);
+  const similitud = 1 - (distancia / maxLen);
+  
+  // Solo considerar similitud si es mayor al 70% y ambas palabras son largas
+  return similitud > 0.7 && palabra1.length >= 4 && palabra2.length >= 4 ? similitud : 0;
+}
+
+/** Calcula distancia de Levenshtein entre dos cadenas */
+function levenshtein(str1, str2) {
+  const matrix = [];
+  
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
+}
+
+/** Similitud mejorada que combina Jaccard con similitud de palabras parciales */
+function similitudMejorada(tokensA, tokensB) {
   if (!tokensA.length || !tokensB.length) return 0;
+  
+  // Similitud Jaccard tradicional para coincidencias exactas
   const A = new Set(tokensA);
   const B = new Set(tokensB);
-  let inter = 0;
-  A.forEach(t => { if (B.has(t)) inter++; });
-  const union = A.size + B.size - inter;
-  return union ? inter / union : 0;
+  let coincidenciasExactas = 0;
+  A.forEach(t => { if (B.has(t)) coincidenciasExactas++; });
+  
+  // Similitud parcial para palabras abreviadas
+  let similitudParcial = 0;
+  let comparaciones = 0;
+  
+  tokensA.forEach(tokenA => {
+    if (tokenA.length >= 4) { // Solo considerar tokens de 4+ caracteres
+      tokensB.forEach(tokenB => {
+        if (tokenB.length >= 4) {
+          const sim = similitudPalabras(tokenA, tokenB);
+          if (sim > 0) {
+            similitudParcial += sim;
+            comparaciones++;
+          }
+        }
+      });
+    }
+  });
+  
+  // Normalizar similitud parcial
+  const similitudParcialNormalizada = comparaciones > 0 ? similitudParcial / comparaciones : 0;
+  
+  // Combinar ambas similitudes
+  const union = A.size + B.size - coincidenciasExactas;
+  const jaccardScore = union ? coincidenciasExactas / union : 0;
+  
+  // Dar prioridad a coincidencias exactas, similitud parcial con peso menor
+  return Math.max(jaccardScore, similitudParcialNormalizada * 0.5);
 }
 
 /** Puntuación EAN */
 function puntuacionPrefijoEAN(a, b, pesos) {
   if (!a || !b) return 0;
   if (a === b) return pesos.eanExacto;
-  let score = 0;
-  if (a.slice(0, 6) === b.slice(0, 6)) score = Math.max(score, pesos.ean6);
-  if (a.slice(0, 4) === b.slice(0, 4)) score = Math.max(score, pesos.ean4);
-  if (a.slice(0, 2) === b.slice(0, 2)) score = Math.max(score, pesos.ean2);
-  return score;
+  if (a.slice(0, 7) === b.slice(0, 7)) return pesos.ean7;
+  return 0;
 }
 
 /** Detecta columnas */
@@ -76,8 +157,8 @@ function adivinarColumnas(cabecera) {
     return fallback;
   }
   return {
-    ARCodi: pick(["arcodi"], cabecera[0]),
-    ARDesc: pick(["ardesc"], cabecera[1]),
+    ARCodi: pick(["arcodi", "codiprod"], cabecera[0]),
+    ARDesc: pick(["ardesc", "descripcion"], cabecera[1]),
     Cantidad: pick(["cantidad", "qty"], "Cantidad"),
     Medida: pick(["medida", "unidad", "unit"], "Medida"),
     Formato: pick(["formato"], "Formato"),
@@ -85,9 +166,9 @@ function adivinarColumnas(cabecera) {
     Marca: pick(["marca", "brand"], "Marca"),
     Sabor: pick(["sabor", "flavor"], "Sabor"),
     EAN: pick(["ean", "barcode", "codigo", "codbarras"], "EAN"),
-    CODIPROD_MARKO: pick(["codiprod_marko"], "CODIPROD_MARKO"),
-    DESCRIPCION_MARKO: pick(["descripcion_marko"], "DESCRIPCION_MARKO"),
-    UNIDADES_MARKO: pick(["unidades_marko"], "UNIDADES_MARKO"),
+    CODIPROD_MAKRO: pick(["codiprod_makro"], "CODIPROD_MAKRO"),
+    DESCRIPCION_MAKRO: pick(["descripcion_makro"], "DESCRIPCION_MAKRO"),
+    UNIDADES_MAKRO: pick(["unidades_makro"], "UNIDADES_MAKRO"),
   };
 }
 
@@ -121,13 +202,15 @@ export default function App() {
   const [columnasMatching, setColumnasMatching] = useState(null);
   const [indiceActual, setIndiceActual] = useState(0);
   const [matchesSeleccionados, setMatchesSeleccionados] = useState(new Map());
+  
+  // Contadores de matches
+  const [contadorMatches, setContadorMatches] = useState(0);
+  const [contadorNoMatches, setContadorNoMatches] = useState(0);
 
   // Pesos para el sistema de puntuación
   const [pesos, setPesos] = useState({
     eanExacto: 120,
-    ean6: 70,
-    ean4: 40,
-    ean2: 15,
+    ean7: 70,
     marca: 60,
     cantidadExacta: 30,
     medida: 12,
@@ -151,10 +234,15 @@ export default function App() {
 
       const cabecera = Object.keys(json[0]);
       const colDetectadas = adivinarColumnas(cabecera);
+      console.log('Referencia - Cabecera:', cabecera);
+      console.log('Referencia - Columnas detectadas:', colDetectadas);
+      console.log('Referencia - Primera fila:', json[0]);
       setColumnasReferencia(colDetectadas);
       setFilasReferencia(json);
       setIndiceActual(0);
       setMatchesSeleccionados(new Map());
+      setContadorMatches(0);
+      setContadorNoMatches(0);
     };
     reader.readAsArrayBuffer(file);
   }
@@ -174,6 +262,9 @@ export default function App() {
 
       const cabecera = Object.keys(json[0]);
       const colDetectadas = adivinarColumnas(cabecera);
+      console.log('Matching - Cabecera:', cabecera);
+      console.log('Matching - Columnas detectadas:', colDetectadas);
+      console.log('Matching - Primera fila:', json[0]);
       setColumnasMatching(colDetectadas);
       setFilasMatching(json);
     };
@@ -236,9 +327,9 @@ export default function App() {
     }
 
     // Descripción
-    const descRef = tokenizar(productoRef[columnasReferencia.Descripcion]);
-    const descMatch = tokenizar(productoMatch[columnasMatching.Descripcion]);
-    puntuaciones.descripcion = jaccard(descRef, descMatch) * pesos.descJaccard;
+    const descRef = tokenizar(productoRef[columnasReferencia.ARDesc]);
+    const descMatch = tokenizar(productoMatch[columnasMatching.ARDesc]);
+    puntuaciones.descripcion = similitudMejorada(descRef, descMatch) * pesos.descJaccard;
 
     // Total
     puntuaciones.total = Object.values(puntuaciones).reduce((a, b) => a + b, 0) - puntuaciones.total;
@@ -270,28 +361,73 @@ export default function App() {
 
   /** Seleccionar match para el producto actual */
   function seleccionarMatch(productoMatch) {
+    console.log('seleccionarMatch: productoMatch', productoMatch);
+    console.log('columnasMatching:', columnasMatching);
     const nuevosMatches = new Map(matchesSeleccionados);
+    const matchAnterior = matchesSeleccionados.get(indiceActual);
+    
+    const codiprod = productoMatch[columnasMatching.ARCodi];
+    const descripcion = productoMatch[columnasMatching.ARDesc];
+    const unidades = productoMatch[columnasMatching.Unidades];
+    console.log('Valores seleccionados:', { codiprod, descripcion, unidades });
+    
     nuevosMatches.set(indiceActual, {
-      codiprod: normalizarEAN(productoMatch[columnasMatching.CODIPROD]),
-      descripcion: productoMatch[columnasMatching.DESCRIPCION],
-      unidades: productoMatch[columnasMatching.Unidades],
+      codiprod,
+      descripcion,
+      unidades,
+      esNoMatch: false
     });
+    
+    // Actualizar contadores
+    if (!matchAnterior) {
+      // Nuevo match
+      setContadorMatches(prev => prev + 1);
+    } else if (matchAnterior.esNoMatch) {
+      // Cambio de NO MATCH a match
+      setContadorMatches(prev => prev + 1);
+      setContadorNoMatches(prev => prev - 1);
+    }
+    
+    setMatchesSeleccionados(nuevosMatches);
+  }
+
+  /** Seleccionar NO MATCH para el producto actual */
+  function seleccionarNoMatch() {
+    const nuevosMatches = new Map(matchesSeleccionados);
+    const matchAnterior = matchesSeleccionados.get(indiceActual);
+    
+    nuevosMatches.set(indiceActual, {
+      codiprod: "NO MATCH",
+      descripcion: "NO MATCH",
+      unidades: "NO MATCH",
+      esNoMatch: true
+    });
+    
+    // Actualizar contadores
+    if (!matchAnterior) {
+      // Nuevo NO MATCH
+      setContadorNoMatches(prev => prev + 1);
+    } else if (!matchAnterior.esNoMatch) {
+      // Cambio de match a NO MATCH
+      setContadorMatches(prev => prev - 1);
+      setContadorNoMatches(prev => prev + 1);
+    }
+    
     setMatchesSeleccionados(nuevosMatches);
   }
 
   /** Exportar Excel con matches */
   function exportarExcelMatcheado() {
     if (!filasReferencia.length || !columnasReferencia) return;
-
+    console.log('Exportando Excel con columnasReferencia:', columnasReferencia);
     const filasActualizadas = filasReferencia.map((fila, idx) => {
       const match = matchesSeleccionados.get(idx);
       const filaLimpia = { ...fila };
-
+      console.log('Fila', idx, 'match:', match);
       // Rellenar las columnas de matching
-      filaLimpia[columnasReferencia.CODIPROD_MARKO] = match?.codiprod ?? "";
-      filaLimpia[columnasReferencia.DESCRIPCION_MARKO] = match?.descripcion ?? "";
-      filaLimpia[columnasReferencia.UNIDADES_MARKO] = match?.unidades ?? "";
-
+      filaLimpia[columnasReferencia.CODIPROD_MAKRO] = match?.codiprod ?? "";
+      filaLimpia[columnasReferencia.DESCRIPCION_MAKRO] = match?.descripcion ?? "";
+      filaLimpia[columnasReferencia.UNIDADES_MAKRO] = match?.unidades ?? "";
       return filaLimpia;
     });
 
@@ -315,13 +451,31 @@ export default function App() {
     const savedColumnasReferencia = localStorage.getItem('columnasReferencia');
     const savedColumnasMatching = localStorage.getItem('columnasMatching');
     const savedIndiceActual = localStorage.getItem('indiceActual');
+    const savedContadorMatches = localStorage.getItem('contadorMatches');
+    const savedContadorNoMatches = localStorage.getItem('contadorNoMatches');
 
     if (userSession) {
       setIsAuthenticated(true);
     }
 
     if (savedMatches) {
-      setMatchesSeleccionados(new Map(JSON.parse(savedMatches)));
+      const matchesMap = new Map(JSON.parse(savedMatches));
+      setMatchesSeleccionados(matchesMap);
+      
+      // Recalcular contadores si no están guardados
+      if (!savedContadorMatches && !savedContadorNoMatches) {
+        let matches = 0;
+        let noMatches = 0;
+        matchesMap.forEach(match => {
+          if (match.esNoMatch) {
+            noMatches++;
+          } else {
+            matches++;
+          }
+        });
+        setContadorMatches(matches);
+        setContadorNoMatches(noMatches);
+      }
     }
 
     if (savedReferencia) {
@@ -344,6 +498,14 @@ export default function App() {
       setIndiceActual(Number(savedIndiceActual));
     }
 
+    if (savedContadorMatches) {
+      setContadorMatches(Number(savedContadorMatches));
+    }
+
+    if (savedContadorNoMatches) {
+      setContadorNoMatches(Number(savedContadorNoMatches));
+    }
+
     setIsLoading(false);
   }, []);
 
@@ -356,8 +518,10 @@ export default function App() {
       localStorage.setItem('columnasReferencia', JSON.stringify(columnasReferencia));
       localStorage.setItem('columnasMatching', JSON.stringify(columnasMatching));
       localStorage.setItem('indiceActual', indiceActual);
+      localStorage.setItem('contadorMatches', contadorMatches);
+      localStorage.setItem('contadorNoMatches', contadorNoMatches);
     }
-  }, [isAuthenticated, matchesSeleccionados, filasReferencia, filasMatching, columnasReferencia, columnasMatching, indiceActual]);
+  }, [isAuthenticated, matchesSeleccionados, filasReferencia, filasMatching, columnasReferencia, columnasMatching, indiceActual, contadorMatches, contadorNoMatches]);
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');
@@ -373,12 +537,16 @@ export default function App() {
       localStorage.removeItem('columnasReferencia');
       localStorage.removeItem('columnasMatching');
       localStorage.removeItem('indiceActual');
+      localStorage.removeItem('contadorMatches');
+      localStorage.removeItem('contadorNoMatches');
       setFilasReferencia([]);
       setFilasMatching([]);
       setColumnasReferencia(null);
       setColumnasMatching(null);
       setIndiceActual(0);
       setMatchesSeleccionados(new Map());
+      setContadorMatches(0);
+      setContadorNoMatches(0);
     }
   };
 
@@ -475,6 +643,30 @@ export default function App() {
           <div style={styles.card}>
             <h2 style={styles.subtitle}>2) Matching de Productos ({indiceActual + 1} de {filasReferencia.length})</h2>
             
+            {/* Contador de matches */}
+            <div style={{
+              display: "flex", 
+              gap: "20px", 
+              marginBottom: "20px", 
+              padding: "12px", 
+              backgroundColor: "#f8f9fa", 
+              borderRadius: "8px",
+              border: "1px solid #e9ecef"
+            }}>
+              <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
+                <span style={{color: "#28a745", fontWeight: "bold", fontSize: "16px"}}>✅ Matches:</span>
+                <span style={{color: "#28a745", fontWeight: "bold", fontSize: "18px"}}>{contadorMatches}</span>
+              </div>
+              <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
+                <span style={{color: "#dc3545", fontWeight: "bold", fontSize: "16px"}}>❌ No Matches:</span>
+                <span style={{color: "#dc3545", fontWeight: "bold", fontSize: "18px"}}>{contadorNoMatches}</span>
+              </div>
+              <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
+                <span style={{color: "#6c757d", fontWeight: "bold", fontSize: "16px"}}>📊 Total procesados:</span>
+                <span style={{color: "#6c757d", fontWeight: "bold", fontSize: "18px"}}>{contadorMatches + contadorNoMatches}</span>
+              </div>
+            </div>
+            
             <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px"}}>
               {/* Producto de referencia */}
               <ProductCard
@@ -506,7 +698,7 @@ export default function App() {
                   style={{...styles.button, marginLeft: "24px"}}
                   onClick={exportarExcelMatcheado}
                 >
-                  Descargar Excel Matcheado
+                  Descargar Excel Matcheado ({contadorMatches + contadorNoMatches} procesados)
                 </button>
               </div>
             </div>
@@ -521,9 +713,58 @@ export default function App() {
                     match={match}
                     columnasMatching={columnasMatching}
                     onSelect={() => seleccionarMatch(match.producto)}
-                    isSelected={matchesSeleccionados.get(indiceActual)?.codiprod === normalizarEAN(match.producto[columnasMatching.EAN])}
+                    isSelected={matchesSeleccionados.get(indiceActual)?.codiprod === match.producto[columnasMatching.ARCodi]}
                   />
                 ))}
+                
+                {/* Opción NO MATCH */}
+                <div style={{
+                  border: "2px solid #dc3545",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "#f8d7da" : "white",
+                  transition: "all 0.2s ease"
+                }}>
+                  <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+                    <div style={{flex: 1}}>
+                      <div style={{fontSize: "16px", fontWeight: "bold", color: "#dc3545", marginBottom: "4px"}}>
+                        ❌ NO MATCH
+                      </div>
+                      <div style={{fontSize: "14px", color: "#6c757d"}}>
+                        Selecciona esta opción si ninguna de las opciones anteriores es correcta
+                      </div>
+                    </div>
+                    <button
+                      onClick={seleccionarNoMatch}
+                      style={{
+                        backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "#dc3545" : "#fff",
+                        color: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "white" : "#dc3545",
+                        border: "2px solid #dc3545",
+                        padding: "8px 16px",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                        minWidth: "100px",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseOver={(e) => {
+                        if (!matchesSeleccionados.get(indiceActual)?.esNoMatch) {
+                          e.target.style.backgroundColor = "#dc3545";
+                          e.target.style.color = "white";
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (!matchesSeleccionados.get(indiceActual)?.esNoMatch) {
+                          e.target.style.backgroundColor = "#fff";
+                          e.target.style.color = "#dc3545";
+                        }
+                      }}
+                    >
+                      {matchesSeleccionados.get(indiceActual)?.esNoMatch ? "SELECCIONADO" : "Seleccionar"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

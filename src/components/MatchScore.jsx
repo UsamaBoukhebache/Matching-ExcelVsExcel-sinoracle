@@ -14,7 +14,7 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
       <div>
         <div style={{fontSize: "14px", lineHeight: "1.6"}}>
           <p style={{margin: "4px 0"}}><b>EAN:</b> {match.producto[columnasMatching.EAN]}</p>
-          <p style={{margin: "4px 0"}}><b>Descripción:</b> {match.producto[columnasMatching.Descripcion]}</p>
+          <p style={{margin: "4px 0"}}><b>Descripción:</b> {match.producto[columnasMatching.ARDesc]}</p>
           <p style={{margin: "4px 0"}}>
             <b>Marca:</b> {match.producto[columnasMatching.Marca]} |{" "}
             <b>Cantidad:</b> {match.producto[columnasMatching.Cantidad]} {match.producto[columnasMatching.Medida]}
