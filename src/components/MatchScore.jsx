@@ -6,9 +6,9 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
     <div 
       onClick={onSelect}
       style={{
-        padding: "16px",
+        padding: "10px",
         backgroundColor: isSelected ? "#f0fdf4" : "#fff",
-        borderRadius: "12px",
+        borderRadius: "6px",
         border: isSelected ? "2px solid #22c55e" : "2px solid #e2e8f0",
         cursor: "pointer",
         transition: "all 0.2s ease",
@@ -30,24 +30,24 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
       {/* Badge de puntuación */}
       <div style={{
         position: "absolute",
-        top: "12px",
-        right: "12px",
+        top: "8px",
+        right: "8px",
         backgroundColor: isSelected ? "#22c55e" : "#3b82f6",
         color: "white",
-        padding: "6px 12px",
-        borderRadius: "20px",
-        fontSize: "14px",
+        padding: "3px 8px",
+        borderRadius: "12px",
+        fontSize: "11px",
         fontWeight: "bold"
       }}>
-        {isSelected ? "✓ " : ""}{match.total.toFixed(0)} pts
+        {isSelected ? "✓ " : ""}{match.total.toFixed(0)}
       </div>
 
       {/* Información del producto */}
-      <div style={{paddingRight: "100px"}}>
-        <div style={{fontSize: "15px", fontWeight: "bold", color: "#1e293b", marginBottom: "8px"}}>
+      <div style={{paddingRight: "70px"}}>
+        <div style={{fontSize: "12px", fontWeight: "bold", color: "#1e293b", marginBottom: "4px", lineHeight: "1.3"}}>
           {match.producto[columnasMatching.DESCRIPCION]}
         </div>
-        <div style={{fontSize: "13px", color: "#64748b", lineHeight: "1.6"}}>
+        <div style={{fontSize: "10px", color: "#64748b", lineHeight: "1.4"}}>
           <div><b>CODIPROD:</b> {match.producto[columnasMatching.CODIPROD]}</div>
           <div>
             <b>Marca:</b> {match.producto[columnasMatching.MARCA] || "—"} | 
@@ -58,76 +58,76 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
         
         {/* Desglose de puntuaciones */}
         <div style={{
-          marginTop: "8px",
+          marginTop: "4px",
           display: "flex",
-          gap: "8px",
+          gap: "4px",
           flexWrap: "wrap",
-          fontSize: "11px"
+          fontSize: "9px"
         }}>
           {match.codiprod > 0 && (
             <span style={{
               backgroundColor: "#fee2e2",
               color: "#dc2626",
-              padding: "2px 6px",
-              borderRadius: "4px",
+              padding: "1px 4px",
+              borderRadius: "3px",
               fontWeight: "600"
             }}>
-              🎯 CODIPROD +{match.codiprod.toFixed(0)}
+              🎯+{match.codiprod.toFixed(0)}
             </span>
           )}
           {match.ean > 0 && (
             <span style={{
               backgroundColor: "#dcfce7",
               color: "#059669",
-              padding: "2px 6px",
-              borderRadius: "4px",
+              padding: "1px 4px",
+              borderRadius: "3px",
               fontWeight: "600"
             }}>
-              EAN +{match.ean.toFixed(0)}
+              EAN+{match.ean.toFixed(0)}
             </span>
           )}
           {match.aecoc > 0 && (
             <span style={{
               backgroundColor: "#dcfce7",
               color: "#059669",
-              padding: "2px 6px",
-              borderRadius: "4px",
+              padding: "1px 4px",
+              borderRadius: "3px",
               fontWeight: "600"
             }}>
-              AECOC +{match.aecoc.toFixed(0)}
+              AEC+{match.aecoc.toFixed(0)}
             </span>
           )}
           {match.marca > 0 && (
             <span style={{
               backgroundColor: "#dbeafe",
               color: "#2563eb",
-              padding: "2px 6px",
-              borderRadius: "4px",
+              padding: "1px 4px",
+              borderRadius: "3px",
               fontWeight: "600"
             }}>
-              Marca +{match.marca.toFixed(0)}
+              M+{match.marca.toFixed(0)}
             </span>
           )}
           {match.descripcion > 0 && (
             <span style={{
               backgroundColor: "#e0e7ff",
               color: "#4f46e5",
-              padding: "2px 6px",
-              borderRadius: "4px",
+              padding: "1px 4px",
+              borderRadius: "3px",
               fontWeight: "600"
             }}>
-              Desc +{match.descripcion.toFixed(0)}
+              D+{match.descripcion.toFixed(0)}
             </span>
           )}
           {match.formato > 0 && (
             <span style={{
               backgroundColor: "#fef3c7",
               color: "#d97706",
-              padding: "2px 6px",
-              borderRadius: "4px",
+              padding: "1px 4px",
+              borderRadius: "3px",
               fontWeight: "600"
             }}>
-              Formato +{match.formato.toFixed(0)}
+              F+{match.formato.toFixed(0)}
             </span>
           )}
         </div>

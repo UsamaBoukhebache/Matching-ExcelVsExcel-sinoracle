@@ -4,24 +4,19 @@ import { styles } from '../styles';
 export function ProductCard({ title, product, columns }) {
   return (
     <div style={{
-      padding: "16px",
+      padding: "10px",
       backgroundColor: "#f8fafc",
-      borderRadius: "12px",
+      borderRadius: "6px",
       border: "1px solid #e2e8f0"
     }}>
-      <h3 style={{margin: "0 0 12px 0", color: "#334155", fontSize: "16px"}}>{title}</h3>
-      <div style={{fontSize: "14px", lineHeight: "1.6"}}>
-        <p style={{margin: "4px 0"}}><b>CODIPROD:</b> {product[columns.CODIPROD]}</p>
-        <p style={{margin: "4px 0"}}><b>DESCRIPCION:</b> {product[columns.DESCRIPCION]}</p>
-        <p style={{margin: "4px 0"}}><b>EAN:</b> {product[columns.EAN]} | <b>AECOC:</b> {product[columns.AECOC]}</p>
-        <p style={{margin: "4px 0"}}>
+      {title && <h3 style={{margin: "0 0 8px 0", color: "#334155", fontSize: "13px"}}>{title}</h3>}
+      <div style={{fontSize: "11px", lineHeight: "1.5"}}>
+        <p style={{margin: "2px 0"}}><b>DESCRIPCION:</b> {product[columns.DESCRIPCION]}</p>
+        <p style={{margin: "2px 0"}}><b>CODIPROD:</b> {product[columns.CODIPROD]} | <b>EAN:</b> {product[columns.EAN]} | <b>AECOC:</b> {product[columns.AECOC]}</p>
+        <p style={{margin: "2px 0"}}>
           <b>Marca:</b> {product[columns.MARCA]} |{" "}
-          <b>Cantidad:</b> {product[columns.CANTIDAD]} {product[columns.MEDIDA]}
-        </p>
-        <p style={{margin: "4px 0"}}>
-          <b>Formato:</b> {product[columns.FORMATO]} |{" "}
-          <b>Sabor:</b> {product[columns.SABOR]} |{" "}
-          <b>Unidades:</b> {product[columns.UNIDADES]}
+          <b>Cantidad:</b> {product[columns.CANTIDAD]} {product[columns.MEDIDA]} |{" "}
+          <b>Formato:</b> {product[columns.FORMATO]}
         </p>
       </div>
     </div>

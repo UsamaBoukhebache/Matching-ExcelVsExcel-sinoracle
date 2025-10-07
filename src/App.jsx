@@ -330,6 +330,9 @@ export default function App() {
     descripcionJaccard: 100,
   });
 
+  // Estado para colapsar/expandir el panel de ponderaciones
+  const [ponderacionesVisible, setPonderacionesVisible] = useState(false);
+
   /** Cargar Excel de referencia */
   function manejarFicheroReferencia(e) {
     const file = e.target.files?.[0];
@@ -812,7 +815,7 @@ export default function App() {
   // Scroll automático al item actual en la lista
   useEffect(() => {
     if (listaMatchesRef.current && filasReferencia.length > 0) {
-      const itemHeight = 80; // Altura aproximada de cada item
+      const itemHeight = 60; // Altura aproximada de cada item (reducida)
       const scrollPosition = indiceActual * itemHeight;
       const containerHeight = listaMatchesRef.current.clientHeight;
       const targetScroll = scrollPosition - containerHeight / 2 + itemHeight / 2;
@@ -860,110 +863,110 @@ export default function App() {
   }
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>
-        Matching de Productos Excel vs Excel
-      </h1>
-
-      {/* Botones de sesión */}
-      <div style={{ position: "absolute", top: "10px", right: "10px", display: "flex", gap: "10px" }}>
-        <button
-          onClick={handleLogout}
-          style={{
-            background: "#dc3545",
-            color: "white",
-            border: "none",
-            padding: "10px 20px",
-            borderRadius: "5px",
-            fontSize: "1rem",
-            fontWeight: "bold",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            boxShadow: "0 4px 15px rgba(220, 53, 69, 0.4)"
-          }}
-          onMouseOver={(e) => {
-            e.target.style.transform = "translateY(-2px)";
-            e.target.style.boxShadow = "0 6px 20px rgba(220, 53, 69, 0.6)";
-          }}
-          onMouseOut={(e) => {
-            e.target.style.transform = "translateY(0)";
-            e.target.style.boxShadow = "0 4px 15px rgba(220, 53, 69, 0.4)";
-          }}
-        >
-          🔒 Cerrar Sesión
-        </button>
-        <button
-          onClick={handleClearSession}
-          style={{
-            background: "#ffc107",
-            color: "#212529",
-            border: "none",
-            padding: "10px 20px",
-            borderRadius: "5px",
-            fontSize: "1rem",
-            fontWeight: "bold",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            boxShadow: "0 4px 15px rgba(255, 193, 7, 0.4)"
-          }}
-          onMouseOver={(e) => {
-            e.target.style.transform = "translateY(-2px)";
-            e.target.style.boxShadow = "0 6px 20px rgba(255, 193, 7, 0.6)";
-          }}
-          onMouseOut={(e) => {
-            e.target.style.transform = "translateY(0)";
-            e.target.style.boxShadow = "0 4px 15px rgba(255, 193, 7, 0.4)";
-          }}
-        >
-          🔄 Reiniciar Proceso
-        </button>
-      </div>
-
-      {/* Bloque: Cargar Excels */}
-      <div style={styles.card}>
-        <h2 style={styles.subtitle}>1) Cargar Archivos Excel</h2>
-        <div style={styles.flexContainer}>
-          <FileUploader
-            inputRef={inputFicheroReferencia}
-            fileCount={filasReferencia.length}
-            onUpload={manejarFicheroReferencia}
-            label="Excel Pequeño (A matchear)"
-          />
-          <FileUploader
-            inputRef={inputFicheroMatching}
-            fileCount={filasMatching.length}
-            onUpload={manejarFicheroMatching}
-            label="Excel Grande (Base de datos)"
-          />
+    <div style={{...styles.container, padding: "12px", maxHeight: "100vh", overflow: "hidden"}}>
+      {/* Header compacto */}
+      <div style={{
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center", 
+        marginBottom: "12px",
+        padding: "8px 12px",
+        backgroundColor: "white",
+        borderRadius: "8px",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+      }}>
+        <h1 style={{...styles.title, margin: 0, fontSize: "18px"}}>
+          🎯 Matching de Productos
+        </h1>
+        
+        {/* Botones de sesión */}
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            onClick={handleLogout}
+            style={{
+              background: "#dc3545",
+              color: "white",
+              border: "none",
+              padding: "6px 12px",
+              borderRadius: "5px",
+              fontSize: "13px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+          >
+            🔒 Cerrar
+          </button>
+          <button
+            onClick={handleClearSession}
+            style={{
+              background: "#ffc107",
+              color: "#212529",
+              border: "none",
+              padding: "6px 12px",
+              borderRadius: "5px",
+              fontSize: "13px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+          >
+            🔄 Reiniciar
+          </button>
         </div>
       </div>
+
+      {/* Bloque: Cargar Excels - Compacto */}
+      {(!filasReferencia.length || !filasMatching.length) && (
+        <div style={{
+          ...styles.card, 
+          padding: "16px", 
+          marginBottom: "12px"
+        }}>
+          <h2 style={{...styles.subtitle, fontSize: "16px", marginBottom: "12px"}}>📂 Cargar Archivos</h2>
+          <div style={{...styles.flexContainer, gap: "12px"}}>
+            <FileUploader
+              inputRef={inputFicheroReferencia}
+              fileCount={filasReferencia.length}
+              onUpload={manejarFicheroReferencia}
+              label="Excel Pequeño"
+            />
+            <FileUploader
+              inputRef={inputFicheroMatching}
+              fileCount={filasMatching.length}
+              onUpload={manejarFicheroMatching}
+              label="Excel Grande"
+            />
+          </div>
+        </div>
+      )}
 
       {filasReferencia.length > 0 && filasMatching.length > 0 && (
         <>
           {/* Layout principal: 2 columnas */}
-          <div style={{display: "grid", gridTemplateColumns: "400px 1fr", gap: "24px", marginTop: "24px"}}>
+          <div style={{display: "grid", gridTemplateColumns: "320px 1fr", gap: "12px", height: "calc(100vh - 100px)"}}>
             
             {/* PANEL IZQUIERDO: Lista de matches */}
             <div style={{
               backgroundColor: "white",
-              borderRadius: "12px",
-              padding: "24px",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-              height: "calc(100vh - 250px)",
+              borderRadius: "8px",
+              padding: "12px",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
               display: "flex",
-              flexDirection: "column"
+              flexDirection: "column",
+              overflow: "hidden"
             }}>
-              <div style={{marginBottom: "20px"}}>
-                <h2 style={{margin: "0 0 12px 0", fontSize: "20px", color: "#1e293b"}}>
-                  📋 Matches Realizados
+              <div style={{marginBottom: "12px"}}>
+                <h2 style={{margin: "0 0 8px 0", fontSize: "15px", color: "#1e293b"}}>
+                  📋 Matches
                 </h2>
                 <div style={{
                   display: "flex", 
-                  gap: "12px", 
-                  padding: "12px", 
+                  gap: "8px", 
+                  padding: "8px", 
                   backgroundColor: "#f8f9fa", 
-                  borderRadius: "8px",
-                  fontSize: "14px"
+                  borderRadius: "6px",
+                  fontSize: "12px"
                 }}>
                   <div>✅ <strong>{contadorMatches}</strong></div>
                   <div>❌ <strong>{contadorNoMatches}</strong></div>
@@ -979,29 +982,26 @@ export default function App() {
                   backgroundColor: contadorMatches + contadorNoMatches === 0 ? "#e2e8f0" : "#10b981",
                   color: "white",
                   border: "none",
-                  padding: "12px 20px",
-                  borderRadius: "8px",
-                  fontSize: "15px",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  fontSize: "13px",
                   fontWeight: "bold",
                   cursor: contadorMatches + contadorNoMatches === 0 ? "not-allowed" : "pointer",
-                  marginBottom: "20px",
-                  transition: "all 0.3s ease",
-                  boxShadow: contadorMatches + contadorNoMatches === 0 ? "none" : "0 4px 15px rgba(16, 185, 129, 0.4)"
+                  marginBottom: "12px",
+                  transition: "all 0.2s ease"
                 }}
                 onMouseOver={(e) => {
                   if (contadorMatches + contadorNoMatches > 0) {
                     e.target.style.backgroundColor = "#059669";
-                    e.target.style.transform = "translateY(-2px)";
                   }
                 }}
                 onMouseOut={(e) => {
                   if (contadorMatches + contadorNoMatches > 0) {
                     e.target.style.backgroundColor = "#10b981";
-                    e.target.style.transform = "translateY(0)";
                   }
                 }}
               >
-                💾 Descargar Excel ({contadorMatches + contadorNoMatches} procesados)
+                💾 Descargar ({contadorMatches + contadorNoMatches})
               </button>
 
               {/* Lista scrolleable de matches */}
@@ -1011,8 +1011,8 @@ export default function App() {
                   flex: 1,
                   overflowY: "auto",
                   border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  padding: "12px",
+                  borderRadius: "6px",
+                  padding: "8px",
                   scrollBehavior: "smooth"
                 }}>
                 {filasReferencia.map((producto, idx) => {
@@ -1025,9 +1025,9 @@ export default function App() {
                       key={idx}
                       onClick={() => setIndiceActual(idx)}
                       style={{
-                        padding: "12px",
-                        marginBottom: "8px",
-                        borderRadius: "6px",
+                        padding: "8px",
+                        marginBottom: "6px",
+                        borderRadius: "4px",
                         cursor: "pointer",
                         backgroundColor: isCurrent ? "#eff6ff" : (isProcessed ? "#f0fdf4" : "white"),
                         border: isCurrent ? "2px solid #3b82f6" : (isProcessed ? "1px solid #86efac" : "1px solid #e2e8f0"),
@@ -1044,15 +1044,15 @@ export default function App() {
                         }
                       }}
                     >
-                      <div style={{fontSize: "12px", color: "#64748b", marginBottom: "4px"}}>
+                      <div style={{fontSize: "10px", color: "#64748b", marginBottom: "2px"}}>
                         #{idx + 1} {isCurrent && "← Actual"}
                       </div>
-                      <div style={{fontSize: "13px", fontWeight: "500", color: "#1e293b", marginBottom: "4px"}}>
-                        {producto[columnasReferencia.DESCRIPCION]?.substring(0, 40)}...
+                      <div style={{fontSize: "11px", fontWeight: "500", color: "#1e293b", marginBottom: "2px", lineHeight: "1.3"}}>
+                        {producto[columnasReferencia.DESCRIPCION]?.substring(0, 35)}...
                       </div>
                       {isProcessed && (
                         <div style={{
-                          fontSize: "12px",
+                          fontSize: "10px",
                           color: match.esNoMatch ? "#dc2626" : "#059669",
                           fontWeight: "600"
                         }}>
@@ -1066,41 +1066,45 @@ export default function App() {
             </div>
 
             {/* PANEL DERECHO: Producto actual y opciones */}
-            <div style={{display: "flex", flexDirection: "column", gap: "24px"}}>
+            <div style={{display: "flex", flexDirection: "column", gap: "12px", overflow: "auto"}}>
               
               {/* Producto actual */}
               <div style={{
                 backgroundColor: "white",
-                borderRadius: "12px",
-                padding: "24px",
-                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                borderRadius: "8px",
+                padding: "12px",
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)"
               }}>
-                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px"}}>
-                  <h2 style={{margin: 0, fontSize: "20px", color: "#1e293b"}}>
-                    🎯 Producto a Matchear ({indiceActual + 1}/{filasReferencia.length})
+                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px"}}>
+                  <h2 style={{margin: 0, fontSize: "15px", color: "#1e293b"}}>
+                    🎯 Producto ({indiceActual + 1}/{filasReferencia.length})
                   </h2>
-                  <div style={{display: "flex", gap: "8px"}}>
+                  <div style={{display: "flex", gap: "6px"}}>
                     <button
                       onClick={() => setIndiceActual(i => Math.max(0, i - 1))}
                       disabled={indiceActual === 0}
                       style={{
                         ...styles.buttonSecondary,
+                        padding: "4px 10px",
+                        fontSize: "12px",
                         opacity: indiceActual === 0 ? 0.5 : 1,
                         cursor: indiceActual === 0 ? "not-allowed" : "pointer"
                       }}
                     >
-                      ← Anterior
+                      ← 
                     </button>
                     <button
                       onClick={() => setIndiceActual(i => Math.min(filasReferencia.length - 1, i + 1))}
                       disabled={indiceActual === filasReferencia.length - 1}
                       style={{
                         ...styles.buttonSecondary,
+                        padding: "4px 10px",
+                        fontSize: "12px",
                         opacity: indiceActual === filasReferencia.length - 1 ? 0.5 : 1,
                         cursor: indiceActual === filasReferencia.length - 1 ? "not-allowed" : "pointer"
                       }}
                     >
-                      Siguiente →
+                      →
                     </button>
                   </div>
                 </div>
@@ -1114,40 +1118,59 @@ export default function App() {
               {/* Opciones de matching */}
               <div style={{
                 backgroundColor: "white",
-                borderRadius: "12px",
-                padding: "24px",
-                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                borderRadius: "8px",
+                padding: "12px",
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                flex: 1,
+                overflow: "auto"
               }}>
-                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px"}}>
-                  <h3 style={{margin: 0, fontSize: "18px", color: "#1e293b"}}>
-                    🔍 Mejores Coincidencias
+                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px"}}>
+                  <h3 style={{margin: 0, fontSize: "14px", color: "#1e293b"}}>
+                    🔍 Coincidencias
                   </h3>
-                  <button
-                    onClick={() => {
-                      const top5 = calcularTop5ParaActual();
-                      if (top5.length > 0) {
-                        console.clear();
-                        calcularPuntuacionDetallada(filasReferencia[indiceActual], top5[0].producto, true);
-                      } else {
-                        console.log("❌ No hay matches para analizar");
-                      }
-                    }}
-                    style={{
-                      backgroundColor: "#6366f1",
-                      color: "white",
-                      border: "none",
-                      padding: "6px 12px",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    🔍 Ver Análisis (Consola)
-                  </button>
+                  <div style={{display: "flex", gap: "6px"}}>
+                    <button
+                      onClick={() => setPonderacionesVisible(!ponderacionesVisible)}
+                      style={{
+                        backgroundColor: "#94a3b8",
+                        color: "white",
+                        border: "none",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      ⚖️ Pesos
+                    </button>
+                    <button
+                      onClick={() => {
+                        const top5 = calcularTop5ParaActual();
+                        if (top5.length > 0) {
+                          console.clear();
+                          calcularPuntuacionDetallada(filasReferencia[indiceActual], top5[0].producto, true);
+                        } else {
+                          console.log("❌ No hay matches para analizar");
+                        }
+                      }}
+                      style={{
+                        backgroundColor: "#6366f1",
+                        color: "white",
+                        border: "none",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      🔍 Logs
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{display: "flex", flexDirection: "column", gap: "12px"}}>
+                <div style={{display: "flex", flexDirection: "column", gap: "8px"}}>
                   {calcularTop5ParaActual().map((match, idx) => (
                     <MatchScore
                       key={idx}
@@ -1161,8 +1184,8 @@ export default function App() {
                   {/* Opción NO MATCH */}
                   <div style={{
                     border: "2px solid #dc3545",
-                    borderRadius: "8px",
-                    padding: "16px",
+                    borderRadius: "6px",
+                    padding: "10px",
                     backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "#fee2e2" : "white",
                     cursor: "pointer",
                     transition: "all 0.2s ease"
@@ -1181,10 +1204,10 @@ export default function App() {
                   >
                     <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
                       <div style={{flex: 1}}>
-                        <div style={{fontSize: "16px", fontWeight: "bold", color: "#dc3545"}}>
+                        <div style={{fontSize: "13px", fontWeight: "bold", color: "#dc3545"}}>
                           ❌ NO MATCH
                         </div>
-                        <div style={{fontSize: "13px", color: "#6c757d", marginTop: "4px"}}>
+                        <div style={{fontSize: "11px", color: "#6c757d", marginTop: "2px"}}>
                           Ninguna opción es correcta
                         </div>
                       </div>
@@ -1192,12 +1215,12 @@ export default function App() {
                         <div style={{
                           backgroundColor: "#dc3545",
                           color: "white",
-                          padding: "6px 12px",
-                          borderRadius: "6px",
-                          fontSize: "12px",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "10px",
                           fontWeight: "bold"
                         }}>
-                          SELECCIONADO
+                          ✓
                         </div>
                       )}
                     </div>
@@ -1205,11 +1228,20 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Ponderaciones */}
-              <WeightAdjuster
-                weights={pesos}
-                onWeightChange={(k, v) => setPesos({ ...pesos, [k]: v })}
-              />
+              {/* Ponderaciones - Colapsable */}
+              {ponderacionesVisible && (
+                <div style={{
+                  backgroundColor: "white",
+                  borderRadius: "8px",
+                  padding: "12px",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)"
+                }}>
+                  <WeightAdjuster
+                    weights={pesos}
+                    onWeightChange={(k, v) => setPesos({ ...pesos, [k]: v })}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </>
