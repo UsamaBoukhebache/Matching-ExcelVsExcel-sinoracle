@@ -13,11 +13,17 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
     }}>
       <div>
         <div style={{fontSize: "14px", lineHeight: "1.6"}}>
-          <p style={{margin: "4px 0"}}><b>EAN:</b> {match.producto[columnasMatching.EAN]}</p>
-          <p style={{margin: "4px 0"}}><b>Descripción:</b> {match.producto[columnasMatching.ARDesc]}</p>
+          <p style={{margin: "4px 0"}}><b>CODIPROD:</b> {match.producto[columnasMatching.CODIPROD]}</p>
+          <p style={{margin: "4px 0"}}><b>DESCRIPCION:</b> {match.producto[columnasMatching.DESCRIPCION]}</p>
+          <p style={{margin: "4px 0"}}><b>EAN:</b> {match.producto[columnasMatching.EAN]} | <b>AECOC:</b> {match.producto[columnasMatching.AECOC]}</p>
           <p style={{margin: "4px 0"}}>
-            <b>Marca:</b> {match.producto[columnasMatching.Marca]} |{" "}
-            <b>Cantidad:</b> {match.producto[columnasMatching.Cantidad]} {match.producto[columnasMatching.Medida]}
+            <b>Marca:</b> {match.producto[columnasMatching.MARCA]} |{" "}
+            <b>Cantidad:</b> {match.producto[columnasMatching.CANTIDAD]} {match.producto[columnasMatching.MEDIDA]}
+          </p>
+          <p style={{margin: "4px 0"}}>
+            <b>Formato:</b> {match.producto[columnasMatching.FORMATO]} |{" "}
+            <b>Sabor:</b> {match.producto[columnasMatching.SABOR]} |{" "}
+            <b>Unidades:</b> {match.producto[columnasMatching.UNIDADES]}
           </p>
         </div>
         <div style={{
@@ -27,8 +33,14 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
           flexWrap: "wrap",
           fontSize: "12px"
         }}>
+          {match.codiprod > 0 && (
+            <span style={{color: "#dc2626", fontWeight: "bold"}}>🎯 CODIPROD: +{match.codiprod.toFixed(1)}</span>
+          )}
           {match.ean > 0 && (
             <span style={{color: "#059669"}}>EAN: +{match.ean.toFixed(1)}</span>
+          )}
+          {match.aecoc > 0 && (
+            <span style={{color: "#059669"}}>AECOC: +{match.aecoc.toFixed(1)}</span>
           )}
           {match.marca > 0 && (
             <span style={{color: "#059669"}}>Marca: +{match.marca.toFixed(1)}</span>
@@ -44,6 +56,9 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
           )}
           {match.sabor > 0 && (
             <span style={{color: "#059669"}}>Sabor: +{match.sabor.toFixed(1)}</span>
+          )}
+          {match.unidades > 0 && (
+            <span style={{color: "#059669"}}>Unidades: +{match.unidades.toFixed(1)}</span>
           )}
           {match.descripcion > 0 && (
             <span style={{color: "#059669"}}>Desc: +{match.descripcion.toFixed(1)}</span>

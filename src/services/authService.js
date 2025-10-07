@@ -10,8 +10,8 @@ class AuthService {
   // Cargar credenciales desde variables de entorno
   loadCredentials() {
     this.adminCredentials = {
-      username: process.env.REACT_APP_ADMIN_USERNAME ,
-      password: process.env.REACT_APP_ADMIN_PASSWORD
+      username: import.meta.env.VITE_ADMIN_USERNAME,
+      password: import.meta.env.VITE_ADMIN_PASSWORD 
     };
   }
 

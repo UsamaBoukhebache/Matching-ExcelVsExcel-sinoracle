@@ -31,15 +31,91 @@ function normalizarEAN(raw) {
   return s;
 }
 
+/** Normaliza números (elimina notación científica, formatos, etc.) */
+function normalizarNumero(raw) {
+  if (raw === undefined || raw === null || raw === "") return null;
+  
+  // Si ya es un número válido
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return raw;
+  }
+  
+  let s = String(raw).trim();
+  
+  // Manejar notación científica
+  if (/e[+-]?\d+/i.test(s)) {
+    const asNumber = Number(raw);
+    if (!Number.isFinite(asNumber)) return null;
+    return asNumber;
+  }
+  
+  // Eliminar separadores de miles y convertir coma decimal a punto
+  s = s.replace(/\s+/g, ""); // Eliminar espacios
+  s = s.replace(/\./g, ""); // Eliminar puntos (separador de miles)
+  s = s.replace(/,/g, "."); // Convertir coma a punto (decimal)
+  
+  const num = parseFloat(s);
+  return Number.isFinite(num) ? num : null;
+}
+
+/** Normaliza descripción */
+function normalizarDescripcion(raw) {
+  if (!raw) return "";
+  return String(raw)
+    .trim()
+    .toLowerCase()
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "") // Eliminar acentos
+    .replace(/\s+/g, " "); // Normalizar espacios múltiples
+}
+
+/** Normaliza unidad de medida */
+function normalizarUnidadMedida(raw) {
+  if (!raw) return "";
+  let s = String(raw)
+    .trim()
+    .toLowerCase()
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  
+  // Normalizar abreviaturas comunes
+  const equivalencias = {
+    'kilogramo': 'kg',
+    'kilogramos': 'kg',
+    'kilo': 'kg',
+    'kilos': 'kg',
+    'gramo': 'g',
+    'gramos': 'g',
+    'litro': 'l',
+    'litros': 'l',
+    'mililitro': 'ml',
+    'mililitros': 'ml',
+    'unidad': 'u',
+    'unidades': 'u',
+    'metro': 'm',
+    'metros': 'm',
+    'centimetro': 'cm',
+    'centimetros': 'cm',
+  };
+  
+  return equivalencias[s] || s;
+}
+
 /** Tokeniza texto para similitud */
 function tokenizar(str) {
   if (!str) return [];
-  return String(str)
-    .toLowerCase()
-    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]+/g, " ")
+  const normalizado = normalizarDescripcion(str);
+  
+  // Primero, proteger números con decimales (comas y puntos)
+  // Convertir "1,5" o "1.5" a "1_5" temporalmente para preservarlos
+  let protegido = normalizado.replace(/(\d+)[,.](\d+)/g, '$1_$2');
+  
+  // Ahora eliminar caracteres especiales excepto guiones bajos (temporales)
+  protegido = protegido.replace(/[^a-z0-9_]+/g, " ");
+  
+  // Split y restaurar los números decimales con punto
+  return protegido
     .split(" ")
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(token => token.replace(/_/g, '.')); // Restaurar como punto decimal
 }
 
 /** Calcula similitud entre dos palabras usando distancia de Levenshtein normalizada */
@@ -137,12 +213,43 @@ function similitudMejorada(tokensA, tokensB) {
   return Math.max(jaccardScore, similitudParcialNormalizada * 0.5);
 }
 
-/** Puntuación EAN */
-function puntuacionPrefijoEAN(a, b, pesos) {
-  if (!a || !b) return 0;
-  if (a === b) return pesos.eanExacto;
-  if (a.slice(0, 7) === b.slice(0, 7)) return pesos.ean7;
-  return 0;
+/** Puntuación AECOC progresiva (comparando de 2 en 2 con 0 imaginario al principio) */
+function puntuacionAECOC(aecocA, aecocB, pesoBase) {
+  if (!aecocA || !aecocB) return 0;
+  
+  // Normalizar: añadir 0 al principio si es necesario y rellenar con 0s hasta 14 caracteres
+  const normalizarAECOC = (aecoc) => {
+    let s = String(aecoc).trim().replace(/\D/g, ""); // Solo dígitos
+    s = "0" + s; // Añadir 0 imaginario al principio
+    return s.padEnd(15, "0"); // Asegurar 15 caracteres (0 + 14)
+  };
+  
+  const a = normalizarAECOC(aecocA);
+  const b = normalizarAECOC(aecocB);
+  
+  // Comparar de 2 en 2 dígitos
+  let digitosCoincidentes = 0;
+  for (let i = 0; i < 14; i += 2) {
+    const parA = a.substring(i, i + 2);
+    const parB = b.substring(i, i + 2);
+    
+    if (parA === parB) {
+      digitosCoincidentes += 2;
+    } else {
+      break; // Si no coinciden, dejamos de comparar
+    }
+  }
+  
+  // Calcular puntuación progresiva
+  // 2 dígitos (1 par) = 20% del peso
+  // 4 dígitos (2 pares) = 40% del peso
+  // 6 dígitos (3 pares) = 60% del peso
+  // 8 dígitos (4 pares) = 80% del peso
+  // 10+ dígitos (5+ pares) = 100% del peso
+  if (digitosCoincidentes === 0) return 0;
+  
+  const porcentaje = Math.min(digitosCoincidentes / 10, 1); // Máximo 100%
+  return pesoBase * porcentaje;
 }
 
 /** Detecta columnas */
@@ -157,18 +264,19 @@ function adivinarColumnas(cabecera) {
     return fallback;
   }
   return {
-    ARCodi: pick(["arcodi", "codiprod"], cabecera[0]),
-    ARDesc: pick(["ardesc", "descripcion"], cabecera[1]),
-    Cantidad: pick(["cantidad", "qty"], "Cantidad"),
-    Medida: pick(["medida", "unidad", "unit"], "Medida"),
-    Formato: pick(["formato"], "Formato"),
-    Unidades: pick(["unidades"], "Unidades"),
-    Marca: pick(["marca", "brand"], "Marca"),
-    Sabor: pick(["sabor", "flavor"], "Sabor"),
-    EAN: pick(["ean", "barcode", "codigo", "codbarras"], "EAN"),
-    CODIPROD_MAKRO: pick(["codiprod_makro"], "CODIPROD_MAKRO"),
-    DESCRIPCION_MAKRO: pick(["descripcion_makro"], "DESCRIPCION_MAKRO"),
-    UNIDADES_MAKRO: pick(["unidades_makro"], "UNIDADES_MAKRO"),
+    CODIPROD: pick(["codiprod"], cabecera[0]),
+    DESCRIPCION: pick(["descripcion"], cabecera[1]),
+    AECOC: pick(["aecoc"], "AECOC"),
+    EAN: pick(["ean"], "EAN"),
+    CANTIDAD: pick(["cantidad"], "CANTIDAD"),
+    MEDIDA: pick(["medida"], "MEDIDA"),
+    FORMATO: pick(["formato"], "FORMATO"),
+    MARCA: pick(["marca"], "MARCA"),
+    UNIDADES: pick(["unidades"], "UNIDADES"),
+    SABOR: pick(["sabor"], "SABOR"),
+    EQUIVALE: pick(["equivale"], "EQUIVALE"),
+    FACTOR: pick(["factor"], "FACTOR"),
+    CODIPRODPX: pick(["codiprodpx"], "CODIPRODPX"), // Nueva columna para exportación
   };
 }
 
@@ -209,14 +317,16 @@ export default function App() {
 
   // Pesos para el sistema de puntuación
   const [pesos, setPesos] = useState({
-    eanExacto: 120,
-    ean7: 70,
-    marca: 60,
-    cantidadExacta: 30,
-    medida: 12,
-    formato: 10,
-    sabor: 6,
-    descJaccard: 100,
+    codiProdExacto: 1000, // Prioridad máxima si CODIPROD coincide
+    eanExacto: 150,
+    aecoc: 100, 
+    marca: 70,
+    cantidadExacta: 40,
+    medida: 20,
+    formato: 20, 
+    sabor: 10,
+    unidades: 20,
+    descripcionJaccard: 100,
   });
 
   /** Cargar Excel de referencia */
@@ -272,67 +382,234 @@ export default function App() {
   }
 
   /** Calcula puntuación detallada entre dos productos */
-  function calcularPuntuacionDetallada(productoRef, productoMatch) {
+  function calcularPuntuacionDetallada(productoRef, productoMatch, mostrarLogs = false) {
     const puntuaciones = {
+      codiprod: 0,
       ean: 0,
+      aecoc: 0,
       marca: 0,
       cantidad: 0,
       medida: 0,
       formato: 0,
       sabor: 0,
+      unidades: 0,
       descripcion: 0,
       total: 0
     };
 
-    // EAN
-    const eanRef = normalizarEAN(productoRef[columnasReferencia.EAN]);
-    const eanMatch = normalizarEAN(productoMatch[columnasMatching.EAN]);
-    puntuaciones.ean = puntuacionPrefijoEAN(eanRef, eanMatch, pesos);
+    if (mostrarLogs) {
+      console.log("\n═══════════════════════════════════════════════════════════════");
+      console.log("🔍 ANÁLISIS DETALLADO DE MATCHING");
+      console.log("═══════════════════════════════════════════════════════════════");
+      console.log(`📦 Producto a matchear: ${productoRef[columnasReferencia.DESCRIPCION]}`);
+      console.log(`🎯 Mejor candidato:     ${productoMatch[columnasMatching.DESCRIPCION]}`);
+      console.log("───────────────────────────────────────────────────────────────\n");
+    }
 
-    // Marca
-    const marcaRef = (productoRef[columnasReferencia.Marca] ?? "").toString().trim().toLowerCase();
-    const marcaMatch = (productoMatch[columnasMatching.Marca] ?? "").toString().trim().toLowerCase();
+    // CODIPROD - PRIORIDAD MÁXIMA
+    const codiProdRef = (productoRef[columnasReferencia.CODIPROD] ?? "").toString().trim();
+    const codiProdMatch = (productoMatch[columnasMatching.CODIPROD] ?? "").toString().trim();
+    if (codiProdRef && codiProdMatch && codiProdRef === codiProdMatch) {
+      puntuaciones.codiprod = pesos.codiProdExacto;
+      if (mostrarLogs) {
+        console.log("✅ CODIPROD: MATCH EXACTO → +%s pts", pesos.codiProdExacto);
+        console.log(`   "${codiProdRef}" = "${codiProdMatch}"\n`);
+      }
+      // Si CODIPROD coincide, es match directo
+      puntuaciones.total = pesos.codiProdExacto;
+      return puntuaciones;
+    } else if (mostrarLogs && (codiProdRef || codiProdMatch)) {
+      console.log("❌ CODIPROD: No coincide → +0 pts");
+      console.log(`   "${codiProdRef}" ≠ "${codiProdMatch}"\n`);
+    }
+
+    // EAN
+    const eanRefOriginal = productoRef[columnasReferencia.EAN];
+    const eanMatchOriginal = productoMatch[columnasMatching.EAN];
+    const eanRef = normalizarEAN(eanRefOriginal);
+    const eanMatch = normalizarEAN(eanMatchOriginal);
+    if (eanRef && eanMatch && eanRef === eanMatch) {
+      puntuaciones.ean = pesos.eanExacto;
+      if (mostrarLogs) {
+        console.log("✅ EAN: MATCH EXACTO → +%s pts", pesos.eanExacto);
+        if (eanRefOriginal !== eanRef) {
+          console.log(`   "${eanRefOriginal}" → "${eanRef}"\n`);
+        } else {
+          console.log(`   "${eanRef}"\n`);
+        }
+      }
+    } else if (mostrarLogs && (eanRef || eanMatch)) {
+      console.log("❌ EAN: No coincide → +0 pts");
+      console.log(`   "${eanRef}" ≠ "${eanMatch}"\n`);
+    }
+
+    // AECOC - Puntuación progresiva
+    const aecocRef = productoRef[columnasReferencia.AECOC];
+    const aecocMatch = productoMatch[columnasMatching.AECOC];
+    puntuaciones.aecoc = puntuacionAECOC(aecocRef, aecocMatch, pesos.aecoc);
+    if (mostrarLogs && (aecocRef || aecocMatch)) {
+      const normalizarAECOC = (aecoc) => {
+        let s = String(aecoc || "").trim().replace(/\D/g, "");
+        s = "0" + s;
+        return s.padEnd(15, "0");
+      };
+      const aecocRefNorm = normalizarAECOC(aecocRef);
+      const aecocMatchNorm = normalizarAECOC(aecocMatch);
+      let digitosCoincidentes = 0;
+      for (let i = 0; i < 14; i += 2) {
+        if (aecocRefNorm.substring(i, i + 2) === aecocMatchNorm.substring(i, i + 2)) {
+          digitosCoincidentes += 2;
+        } else {
+          break;
+        }
+      }
+      const porcentaje = Math.min(digitosCoincidentes / 10, 1);
+      console.log(`${puntuaciones.aecoc > 0 ? '✅' : '⚠️'} AECOC: ${digitosCoincidentes}/14 dígitos (${Math.round(porcentaje * 100)}%) → +${puntuaciones.aecoc.toFixed(1)} pts`);
+      console.log(`   "${aecocRef}" → "${aecocRefNorm}"`);
+      console.log(`   "${aecocMatch}" → "${aecocMatchNorm}"\n`);
+    }
+
+    // Marca (normalizada)
+    const marcaRefOriginal = productoRef[columnasReferencia.MARCA] ?? "";
+    const marcaMatchOriginal = productoMatch[columnasMatching.MARCA] ?? "";
+    const marcaRef = normalizarDescripcion(marcaRefOriginal);
+    const marcaMatch = normalizarDescripcion(marcaMatchOriginal);
     if (marcaRef && marcaMatch && marcaRef === marcaMatch) {
       puntuaciones.marca = pesos.marca;
+      if (mostrarLogs) {
+        console.log("✅ MARCA: MATCH → +%s pts", pesos.marca);
+        if (marcaRefOriginal !== marcaRef) {
+          console.log(`   "${marcaRefOriginal}" → "${marcaRef}"\n`);
+        } else {
+          console.log(`   "${marcaRef}"\n`);
+        }
+      }
+    } else if (mostrarLogs && (marcaRef || marcaMatch)) {
+      console.log("❌ MARCA: No coincide → +0 pts");
+      console.log(`   "${marcaRef}" ≠ "${marcaMatch}"\n`);
     }
 
-    // Cantidad
-    const cantRef = productoRef[columnasReferencia.Cantidad];
-    const cantMatch = productoMatch[columnasMatching.Cantidad];
-    if (cantRef !== undefined && cantMatch !== undefined &&
-        cantRef !== "" && cantMatch !== "" &&
-        Number(cantRef) === Number(cantMatch)) {
+    // Cantidad (normalizada)
+    const cantRefOriginal = productoRef[columnasReferencia.CANTIDAD];
+    const cantMatchOriginal = productoMatch[columnasMatching.CANTIDAD];
+    const cantRef = normalizarNumero(cantRefOriginal);
+    const cantMatch = normalizarNumero(cantMatchOriginal);
+    if (cantRef !== null && cantMatch !== null && cantRef === cantMatch) {
       puntuaciones.cantidad = pesos.cantidadExacta;
+      if (mostrarLogs) {
+        console.log("✅ CANTIDAD: MATCH → +%s pts", pesos.cantidadExacta);
+        if (cantRefOriginal != cantRef) {
+          console.log(`   "${cantRefOriginal}" → ${cantRef}\n`);
+        } else {
+          console.log(`   ${cantRef}\n`);
+        }
+      }
+    } else if (mostrarLogs && (cantRef !== null || cantMatch !== null)) {
+      console.log("❌ CANTIDAD: No coincide → +0 pts");
+      console.log(`   ${cantRef} ≠ ${cantMatch}\n`);
     }
 
-    // Medida
-    const medRef = (productoRef[columnasReferencia.Medida] ?? "").toString().trim().toLowerCase();
-    const medMatch = (productoMatch[columnasMatching.Medida] ?? "").toString().trim().toLowerCase();
+    // Medida (normalizada)
+    const medRefOriginal = productoRef[columnasReferencia.MEDIDA] ?? "";
+    const medMatchOriginal = productoMatch[columnasMatching.MEDIDA] ?? "";
+    const medRef = normalizarUnidadMedida(medRefOriginal);
+    const medMatch = normalizarUnidadMedida(medMatchOriginal);
     if (medRef && medMatch && medRef === medMatch) {
       puntuaciones.medida = pesos.medida;
+      if (mostrarLogs) {
+        console.log("✅ MEDIDA: MATCH → +%s pts", pesos.medida);
+        if (medRefOriginal !== medRef || medMatchOriginal !== medMatch) {
+          console.log(`   "${medRefOriginal}" → "${medRef}"\n`);
+        } else {
+          console.log(`   "${medRef}"\n`);
+        }
+      }
+    } else if (mostrarLogs && (medRef || medMatch)) {
+      console.log("❌ MEDIDA: No coincide → +0 pts");
+      console.log(`   "${medRef}" ≠ "${medMatch}"\n`);
     }
 
-    // Formato
-    const formRef = (productoRef[columnasReferencia.Formato] ?? "").toString().trim().toLowerCase();
-    const formMatch = (productoMatch[columnasMatching.Formato] ?? "").toString().trim().toLowerCase();
+    // Formato (normalizado)
+    const formRefOriginal = productoRef[columnasReferencia.FORMATO] ?? "";
+    const formMatchOriginal = productoMatch[columnasMatching.FORMATO] ?? "";
+    const formRef = normalizarDescripcion(formRefOriginal);
+    const formMatch = normalizarDescripcion(formMatchOriginal);
     if (formRef && formMatch && formRef === formMatch) {
       puntuaciones.formato = pesos.formato;
+      if (mostrarLogs) {
+        console.log("✅ FORMATO: MATCH → +%s pts", pesos.formato);
+        if (formRefOriginal !== formRef) {
+          console.log(`   "${formRefOriginal}" → "${formRef}"\n`);
+        } else {
+          console.log(`   "${formRef}"\n`);
+        }
+      }
+    } else if (mostrarLogs && (formRef || formMatch)) {
+      console.log("❌ FORMATO: No coincide → +0 pts");
+      console.log(`   "${formRef}" ≠ "${formMatch}"\n`);
     }
 
-    // Sabor
-    const sabRef = (productoRef[columnasReferencia.Sabor] ?? "").toString().trim().toLowerCase();
-    const sabMatch = (productoMatch[columnasMatching.Sabor] ?? "").toString().trim().toLowerCase();
+    // Sabor (normalizado)
+    const sabRefOriginal = productoRef[columnasReferencia.SABOR] ?? "";
+    const sabMatchOriginal = productoMatch[columnasMatching.SABOR] ?? "";
+    const sabRef = normalizarDescripcion(sabRefOriginal);
+    const sabMatch = normalizarDescripcion(sabMatchOriginal);
     if (sabRef && sabMatch && sabRef === sabMatch) {
       puntuaciones.sabor = pesos.sabor;
+      if (mostrarLogs) {
+        console.log("✅ SABOR: MATCH → +%s pts", pesos.sabor);
+        if (sabRefOriginal !== sabRef) {
+          console.log(`   "${sabRefOriginal}" → "${sabRef}"\n`);
+        } else {
+          console.log(`   "${sabRef}"\n`);
+        }
+      }
+    } else if (mostrarLogs && (sabRef || sabMatch)) {
+      console.log("❌ SABOR: No coincide → +0 pts");
+      console.log(`   "${sabRef}" ≠ "${sabMatch}"\n`);
     }
 
-    // Descripción
-    const descRef = tokenizar(productoRef[columnasReferencia.ARDesc]);
-    const descMatch = tokenizar(productoMatch[columnasMatching.ARDesc]);
-    puntuaciones.descripcion = similitudMejorada(descRef, descMatch) * pesos.descJaccard;
+    // Unidades (normalizadas)
+    const uniRefOriginal = productoRef[columnasReferencia.UNIDADES];
+    const uniMatchOriginal = productoMatch[columnasMatching.UNIDADES];
+    const uniRef = normalizarNumero(uniRefOriginal);
+    const uniMatch = normalizarNumero(uniMatchOriginal);
+    if (uniRef !== null && uniMatch !== null && uniRef === uniMatch) {
+      puntuaciones.unidades = pesos.unidades;
+      if (mostrarLogs) {
+        console.log("✅ UNIDADES: MATCH → +%s pts", pesos.unidades);
+        if (uniRefOriginal != uniRef) {
+          console.log(`   "${uniRefOriginal}" → ${uniRef}\n`);
+        } else {
+          console.log(`   ${uniRef}\n`);
+        }
+      }
+    } else if (mostrarLogs && (uniRef !== null || uniMatch !== null)) {
+      console.log("❌ UNIDADES: No coincide → +0 pts");
+      console.log(`   ${uniRef} ≠ ${uniMatch}\n`);
+    }
+
+    // Descripción (ya normalizada en tokenizar)
+    const descRefOriginal = productoRef[columnasReferencia.DESCRIPCION];
+    const descMatchOriginal = productoMatch[columnasMatching.DESCRIPCION];
+    const descRef = tokenizar(descRefOriginal);
+    const descMatch = tokenizar(descMatchOriginal);
+    const similitud = similitudMejorada(descRef, descMatch);
+    puntuaciones.descripcion = similitud * pesos.descripcionJaccard;
+    if (mostrarLogs) {
+      console.log(`${puntuaciones.descripcion > 20 ? '✅' : '⚠️'} DESCRIPCIÓN: Similitud ${(similitud * 100).toFixed(1)}% → +${puntuaciones.descripcion.toFixed(1)} pts`);
+      console.log(`   Tokens Ref:   [${descRef.join(', ')}]`);
+      console.log(`   Tokens Match: [${descMatch.join(', ')}]\n`);
+    }
 
     // Total
     puntuaciones.total = Object.values(puntuaciones).reduce((a, b) => a + b, 0) - puntuaciones.total;
+
+    if (mostrarLogs) {
+      console.log("═══════════════════════════════════════════════════════════════");
+      console.log(`🎯 PUNTUACIÓN TOTAL: ${puntuaciones.total.toFixed(1)} puntos`);
+      console.log("═══════════════════════════════════════════════════════════════\n");
+    }
 
     return puntuaciones;
   }
@@ -344,8 +621,9 @@ export default function App() {
     const productoRef = filasReferencia[indiceActual];
     const candidatos = [];
     
+    // Calcular puntuaciones sin logs
     filasMatching.forEach((productoMatch, idx) => {
-      const puntuacion = calcularPuntuacionDetallada(productoRef, productoMatch);
+      const puntuacion = calcularPuntuacionDetallada(productoRef, productoMatch, false);
       if (puntuacion.total > 0) {
         candidatos.push({
           index: idx,
@@ -356,6 +634,7 @@ export default function App() {
     });
     
     candidatos.sort((a, b) => b.total - a.total);
+    
     return candidatos.slice(0, 5);
   }
 
@@ -366,15 +645,11 @@ export default function App() {
     const nuevosMatches = new Map(matchesSeleccionados);
     const matchAnterior = matchesSeleccionados.get(indiceActual);
     
-    const codiprod = productoMatch[columnasMatching.ARCodi];
-    const descripcion = productoMatch[columnasMatching.ARDesc];
-    const unidades = productoMatch[columnasMatching.Unidades];
-    console.log('Valores seleccionados:', { codiprod, descripcion, unidades });
+    const codiprodpx = productoMatch[columnasMatching.CODIPROD];
+    console.log('CODIPRODPX seleccionado:', codiprodpx);
     
     nuevosMatches.set(indiceActual, {
-      codiprod,
-      descripcion,
-      unidades,
+      codiprodpx,
       esNoMatch: false
     });
     
@@ -397,9 +672,7 @@ export default function App() {
     const matchAnterior = matchesSeleccionados.get(indiceActual);
     
     nuevosMatches.set(indiceActual, {
-      codiprod: "NO MATCH",
-      descripcion: "NO MATCH",
-      unidades: "NO MATCH",
+      codiprodpx: "NO MATCH",
       esNoMatch: true
     });
     
@@ -424,10 +697,8 @@ export default function App() {
       const match = matchesSeleccionados.get(idx);
       const filaLimpia = { ...fila };
       console.log('Fila', idx, 'match:', match);
-      // Rellenar las columnas de matching
-      filaLimpia[columnasReferencia.CODIPROD_MAKRO] = match?.codiprod ?? "";
-      filaLimpia[columnasReferencia.DESCRIPCION_MAKRO] = match?.descripcion ?? "";
-      filaLimpia[columnasReferencia.UNIDADES_MAKRO] = match?.unidades ?? "";
+      // Añadir columna CODIPRODPX con el CODIPROD del excel grande
+      filaLimpia[columnasReferencia.CODIPRODPX] = match?.codiprodpx ?? "";
       return filaLimpia;
     });
 
@@ -626,13 +897,13 @@ export default function App() {
             inputRef={inputFicheroReferencia}
             fileCount={filasReferencia.length}
             onUpload={manejarFicheroReferencia}
-            label="Excel de Referencia"
+            label="Excel Pequeño (A matchear)"
           />
           <FileUploader
             inputRef={inputFicheroMatching}
             fileCount={filasMatching.length}
             onUpload={manejarFicheroMatching}
-            label="Excel para Matching"
+            label="Excel Grande (Base de datos)"
           />
         </div>
       </div>
@@ -705,7 +976,44 @@ export default function App() {
 
             {/* Top 5 matches */}
             <div style={{marginTop: "24px"}}>
-              <h3 style={{margin: "0 0 16px 0", color: "#334155", fontSize: "16px"}}>Mejores coincidencias:</h3>
+              <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px"}}>
+                <h3 style={{margin: "0", color: "#334155", fontSize: "16px"}}>Mejores coincidencias:</h3>
+                <button
+                  onClick={() => {
+                    const top5 = calcularTop5ParaActual();
+                    if (top5.length > 0) {
+                      console.clear();
+                      calcularPuntuacionDetallada(filasReferencia[indiceActual], top5[0].producto, true);
+                    } else {
+                      console.log("❌ No hay matches para analizar");
+                    }
+                  }}
+                  style={{
+                    backgroundColor: "#6366f1",
+                    color: "white",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    transition: "all 0.2s ease",
+                    boxShadow: "0 2px 8px rgba(99, 102, 241, 0.3)"
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.backgroundColor = "#4f46e5";
+                    e.target.style.transform = "translateY(-1px)";
+                    e.target.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.4)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.backgroundColor = "#6366f1";
+                    e.target.style.transform = "translateY(0)";
+                    e.target.style.boxShadow = "0 2px 8px rgba(99, 102, 241, 0.3)";
+                  }}
+                >
+                  🔍 Ver Análisis Detallado (Consola)
+                </button>
+              </div>
               <div style={{display: "flex", flexDirection: "column", gap: "16px"}}>
                 {calcularTop5ParaActual().map((match, idx) => (
                   <MatchScore
@@ -713,7 +1021,7 @@ export default function App() {
                     match={match}
                     columnasMatching={columnasMatching}
                     onSelect={() => seleccionarMatch(match.producto)}
-                    isSelected={matchesSeleccionados.get(indiceActual)?.codiprod === match.producto[columnasMatching.ARCodi]}
+                    isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
                   />
                 ))}
                 
