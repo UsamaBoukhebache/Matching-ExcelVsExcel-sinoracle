@@ -292,6 +292,7 @@ export default function App() {
   // Referencias para los inputs de archivo
   const inputFicheroReferencia = useRef(null);
   const inputFicheroMatching = useRef(null);
+  const listaMatchesRef = useRef(null);
   
   // Contenedor principal con nueva clase
   const AppContainer = ({ children }) => (
@@ -664,6 +665,13 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    
+    // Auto-avanzar al siguiente producto si no es el último
+    if (indiceActual < filasReferencia.length - 1) {
+      setTimeout(() => {
+        setIndiceActual(prev => prev + 1);
+      }, 300); // Pequeño delay para que se vea el feedback visual
+    }
   }
 
   /** Seleccionar NO MATCH para el producto actual */
@@ -687,6 +695,13 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    
+    // Auto-avanzar al siguiente producto si no es el último
+    if (indiceActual < filasReferencia.length - 1) {
+      setTimeout(() => {
+        setIndiceActual(prev => prev + 1);
+      }, 300); // Pequeño delay para que se vea el feedback visual
+    }
   }
 
   /** Exportar Excel con matches */
@@ -793,6 +808,21 @@ export default function App() {
       localStorage.setItem('contadorNoMatches', contadorNoMatches);
     }
   }, [isAuthenticated, matchesSeleccionados, filasReferencia, filasMatching, columnasReferencia, columnasMatching, indiceActual, contadorMatches, contadorNoMatches]);
+
+  // Scroll automático al item actual en la lista
+  useEffect(() => {
+    if (listaMatchesRef.current && filasReferencia.length > 0) {
+      const itemHeight = 80; // Altura aproximada de cada item
+      const scrollPosition = indiceActual * itemHeight;
+      const containerHeight = listaMatchesRef.current.clientHeight;
+      const targetScroll = scrollPosition - containerHeight / 2 + itemHeight / 2;
+      
+      listaMatchesRef.current.scrollTo({
+        top: Math.max(0, targetScroll),
+        behavior: 'smooth'
+      });
+    }
+  }, [indiceActual, filasReferencia.length]);
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');
@@ -910,178 +940,278 @@ export default function App() {
 
       {filasReferencia.length > 0 && filasMatching.length > 0 && (
         <>
-          {/* Bloque: Navegación y Matching */}
-          <div style={styles.card}>
-            <h2 style={styles.subtitle}>2) Matching de Productos ({indiceActual + 1} de {filasReferencia.length})</h2>
+          {/* Layout principal: 2 columnas */}
+          <div style={{display: "grid", gridTemplateColumns: "400px 1fr", gap: "24px", marginTop: "24px"}}>
             
-            {/* Contador de matches */}
+            {/* PANEL IZQUIERDO: Lista de matches */}
             <div style={{
-              display: "flex", 
-              gap: "20px", 
-              marginBottom: "20px", 
-              padding: "12px", 
-              backgroundColor: "#f8f9fa", 
-              borderRadius: "8px",
-              border: "1px solid #e9ecef"
+              backgroundColor: "white",
+              borderRadius: "12px",
+              padding: "24px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              height: "calc(100vh - 250px)",
+              display: "flex",
+              flexDirection: "column"
             }}>
-              <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
-                <span style={{color: "#28a745", fontWeight: "bold", fontSize: "16px"}}>✅ Matches:</span>
-                <span style={{color: "#28a745", fontWeight: "bold", fontSize: "18px"}}>{contadorMatches}</span>
-              </div>
-              <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
-                <span style={{color: "#dc3545", fontWeight: "bold", fontSize: "16px"}}>❌ No Matches:</span>
-                <span style={{color: "#dc3545", fontWeight: "bold", fontSize: "18px"}}>{contadorNoMatches}</span>
-              </div>
-              <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
-                <span style={{color: "#6c757d", fontWeight: "bold", fontSize: "16px"}}>📊 Total procesados:</span>
-                <span style={{color: "#6c757d", fontWeight: "bold", fontSize: "18px"}}>{contadorMatches + contadorNoMatches}</span>
-              </div>
-            </div>
-            
-            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px"}}>
-              {/* Producto de referencia */}
-              <ProductCard
-                title="Producto a Matchear:"
-                product={filasReferencia[indiceActual]}
-                columns={columnasReferencia}
-              />
-
-              {/* Navegación y exportación */}
-              <div style={{display: "flex", gap: "12px", alignItems: "center", justifyContent: "flex-end"}}>
-                <button
-                  style={{...styles.buttonSecondary, opacity: indiceActual === 0 ? 0.5 : 1}}
-                  onClick={() => setIndiceActual(i => Math.max(0, i - 1))}
-                  disabled={indiceActual === 0}
-                >
-                  ← Anterior
-                </button>
-                <span style={{color: "#64748b"}}>
-                  {indiceActual + 1} de {filasReferencia.length}
-                </span>
-                <button
-                  style={{...styles.buttonSecondary, opacity: indiceActual === filasReferencia.length - 1 ? 0.5 : 1}}
-                  onClick={() => setIndiceActual(i => Math.min(filasReferencia.length - 1, i + 1))}
-                  disabled={indiceActual === filasReferencia.length - 1}
-                >
-                  Siguiente →
-                </button>
-                <button
-                  style={{...styles.button, marginLeft: "24px"}}
-                  onClick={exportarExcelMatcheado}
-                >
-                  Descargar Excel Matcheado ({contadorMatches + contadorNoMatches} procesados)
-                </button>
-              </div>
-            </div>
-
-            {/* Top 5 matches */}
-            <div style={{marginTop: "24px"}}>
-              <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px"}}>
-                <h3 style={{margin: "0", color: "#334155", fontSize: "16px"}}>Mejores coincidencias:</h3>
-                <button
-                  onClick={() => {
-                    const top5 = calcularTop5ParaActual();
-                    if (top5.length > 0) {
-                      console.clear();
-                      calcularPuntuacionDetallada(filasReferencia[indiceActual], top5[0].producto, true);
-                    } else {
-                      console.log("❌ No hay matches para analizar");
-                    }
-                  }}
-                  style={{
-                    backgroundColor: "#6366f1",
-                    color: "white",
-                    border: "none",
-                    padding: "8px 16px",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "bold",
-                    transition: "all 0.2s ease",
-                    boxShadow: "0 2px 8px rgba(99, 102, 241, 0.3)"
-                  }}
-                  onMouseOver={(e) => {
-                    e.target.style.backgroundColor = "#4f46e5";
-                    e.target.style.transform = "translateY(-1px)";
-                    e.target.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.4)";
-                  }}
-                  onMouseOut={(e) => {
-                    e.target.style.backgroundColor = "#6366f1";
-                    e.target.style.transform = "translateY(0)";
-                    e.target.style.boxShadow = "0 2px 8px rgba(99, 102, 241, 0.3)";
-                  }}
-                >
-                  🔍 Ver Análisis Detallado (Consola)
-                </button>
-              </div>
-              <div style={{display: "flex", flexDirection: "column", gap: "16px"}}>
-                {calcularTop5ParaActual().map((match, idx) => (
-                  <MatchScore
-                    key={idx}
-                    match={match}
-                    columnasMatching={columnasMatching}
-                    onSelect={() => seleccionarMatch(match.producto)}
-                    isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
-                  />
-                ))}
-                
-                {/* Opción NO MATCH */}
+              <div style={{marginBottom: "20px"}}>
+                <h2 style={{margin: "0 0 12px 0", fontSize: "20px", color: "#1e293b"}}>
+                  📋 Matches Realizados
+                </h2>
                 <div style={{
-                  border: "2px solid #dc3545",
+                  display: "flex", 
+                  gap: "12px", 
+                  padding: "12px", 
+                  backgroundColor: "#f8f9fa", 
                   borderRadius: "8px",
-                  padding: "16px",
-                  backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "#f8d7da" : "white",
-                  transition: "all 0.2s ease"
+                  fontSize: "14px"
                 }}>
-                  <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
-                    <div style={{flex: 1}}>
-                      <div style={{fontSize: "16px", fontWeight: "bold", color: "#dc3545", marginBottom: "4px"}}>
-                        ❌ NO MATCH
-                      </div>
-                      <div style={{fontSize: "14px", color: "#6c757d"}}>
-                        Selecciona esta opción si ninguna de las opciones anteriores es correcta
-                      </div>
-                    </div>
-                    <button
-                      onClick={seleccionarNoMatch}
+                  <div>✅ <strong>{contadorMatches}</strong></div>
+                  <div>❌ <strong>{contadorNoMatches}</strong></div>
+                  <div>📊 <strong>{contadorMatches + contadorNoMatches}/{filasReferencia.length}</strong></div>
+                </div>
+              </div>
+
+              {/* Botón de descarga */}
+              <button
+                onClick={exportarExcelMatcheado}
+                disabled={contadorMatches + contadorNoMatches === 0}
+                style={{
+                  backgroundColor: contadorMatches + contadorNoMatches === 0 ? "#e2e8f0" : "#10b981",
+                  color: "white",
+                  border: "none",
+                  padding: "12px 20px",
+                  borderRadius: "8px",
+                  fontSize: "15px",
+                  fontWeight: "bold",
+                  cursor: contadorMatches + contadorNoMatches === 0 ? "not-allowed" : "pointer",
+                  marginBottom: "20px",
+                  transition: "all 0.3s ease",
+                  boxShadow: contadorMatches + contadorNoMatches === 0 ? "none" : "0 4px 15px rgba(16, 185, 129, 0.4)"
+                }}
+                onMouseOver={(e) => {
+                  if (contadorMatches + contadorNoMatches > 0) {
+                    e.target.style.backgroundColor = "#059669";
+                    e.target.style.transform = "translateY(-2px)";
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (contadorMatches + contadorNoMatches > 0) {
+                    e.target.style.backgroundColor = "#10b981";
+                    e.target.style.transform = "translateY(0)";
+                  }
+                }}
+              >
+                💾 Descargar Excel ({contadorMatches + contadorNoMatches} procesados)
+              </button>
+
+              {/* Lista scrolleable de matches */}
+              <div 
+                ref={listaMatchesRef}
+                style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  padding: "12px",
+                  scrollBehavior: "smooth"
+                }}>
+                {filasReferencia.map((producto, idx) => {
+                  const match = matchesSeleccionados.get(idx);
+                  const isProcessed = match !== undefined;
+                  const isCurrent = idx === indiceActual;
+                  
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => setIndiceActual(idx)}
                       style={{
-                        backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "#dc3545" : "#fff",
-                        color: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "white" : "#dc3545",
-                        border: "2px solid #dc3545",
-                        padding: "8px 16px",
+                        padding: "12px",
+                        marginBottom: "8px",
                         borderRadius: "6px",
                         cursor: "pointer",
-                        fontSize: "14px",
-                        fontWeight: "bold",
-                        minWidth: "100px",
+                        backgroundColor: isCurrent ? "#eff6ff" : (isProcessed ? "#f0fdf4" : "white"),
+                        border: isCurrent ? "2px solid #3b82f6" : (isProcessed ? "1px solid #86efac" : "1px solid #e2e8f0"),
                         transition: "all 0.2s ease"
                       }}
                       onMouseOver={(e) => {
-                        if (!matchesSeleccionados.get(indiceActual)?.esNoMatch) {
-                          e.target.style.backgroundColor = "#dc3545";
-                          e.target.style.color = "white";
+                        if (!isCurrent) {
+                          e.currentTarget.style.backgroundColor = "#f8fafc";
                         }
                       }}
                       onMouseOut={(e) => {
-                        if (!matchesSeleccionados.get(indiceActual)?.esNoMatch) {
-                          e.target.style.backgroundColor = "#fff";
-                          e.target.style.color = "#dc3545";
+                        if (!isCurrent) {
+                          e.currentTarget.style.backgroundColor = isProcessed ? "#f0fdf4" : "white";
                         }
                       }}
                     >
-                      {matchesSeleccionados.get(indiceActual)?.esNoMatch ? "SELECCIONADO" : "Seleccionar"}
+                      <div style={{fontSize: "12px", color: "#64748b", marginBottom: "4px"}}>
+                        #{idx + 1} {isCurrent && "← Actual"}
+                      </div>
+                      <div style={{fontSize: "13px", fontWeight: "500", color: "#1e293b", marginBottom: "4px"}}>
+                        {producto[columnasReferencia.DESCRIPCION]?.substring(0, 40)}...
+                      </div>
+                      {isProcessed && (
+                        <div style={{
+                          fontSize: "12px",
+                          color: match.esNoMatch ? "#dc2626" : "#059669",
+                          fontWeight: "600"
+                        }}>
+                          {match.esNoMatch ? "❌ NO MATCH" : `✅ ${match.codiprodpx}`}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* PANEL DERECHO: Producto actual y opciones */}
+            <div style={{display: "flex", flexDirection: "column", gap: "24px"}}>
+              
+              {/* Producto actual */}
+              <div style={{
+                backgroundColor: "white",
+                borderRadius: "12px",
+                padding: "24px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+              }}>
+                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px"}}>
+                  <h2 style={{margin: 0, fontSize: "20px", color: "#1e293b"}}>
+                    🎯 Producto a Matchear ({indiceActual + 1}/{filasReferencia.length})
+                  </h2>
+                  <div style={{display: "flex", gap: "8px"}}>
+                    <button
+                      onClick={() => setIndiceActual(i => Math.max(0, i - 1))}
+                      disabled={indiceActual === 0}
+                      style={{
+                        ...styles.buttonSecondary,
+                        opacity: indiceActual === 0 ? 0.5 : 1,
+                        cursor: indiceActual === 0 ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      ← Anterior
+                    </button>
+                    <button
+                      onClick={() => setIndiceActual(i => Math.min(filasReferencia.length - 1, i + 1))}
+                      disabled={indiceActual === filasReferencia.length - 1}
+                      style={{
+                        ...styles.buttonSecondary,
+                        opacity: indiceActual === filasReferencia.length - 1 ? 0.5 : 1,
+                        cursor: indiceActual === filasReferencia.length - 1 ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      Siguiente →
                     </button>
                   </div>
                 </div>
+                <ProductCard
+                  title=""
+                  product={filasReferencia[indiceActual]}
+                  columns={columnasReferencia}
+                />
               </div>
+
+              {/* Opciones de matching */}
+              <div style={{
+                backgroundColor: "white",
+                borderRadius: "12px",
+                padding: "24px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+              }}>
+                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px"}}>
+                  <h3 style={{margin: 0, fontSize: "18px", color: "#1e293b"}}>
+                    🔍 Mejores Coincidencias
+                  </h3>
+                  <button
+                    onClick={() => {
+                      const top5 = calcularTop5ParaActual();
+                      if (top5.length > 0) {
+                        console.clear();
+                        calcularPuntuacionDetallada(filasReferencia[indiceActual], top5[0].producto, true);
+                      } else {
+                        console.log("❌ No hay matches para analizar");
+                      }
+                    }}
+                    style={{
+                      backgroundColor: "#6366f1",
+                      color: "white",
+                      border: "none",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    🔍 Ver Análisis (Consola)
+                  </button>
+                </div>
+
+                <div style={{display: "flex", flexDirection: "column", gap: "12px"}}>
+                  {calcularTop5ParaActual().map((match, idx) => (
+                    <MatchScore
+                      key={idx}
+                      match={match}
+                      columnasMatching={columnasMatching}
+                      onSelect={() => seleccionarMatch(match.producto)}
+                      isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
+                    />
+                  ))}
+                  
+                  {/* Opción NO MATCH */}
+                  <div style={{
+                    border: "2px solid #dc3545",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "#fee2e2" : "white",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}
+                  onClick={seleccionarNoMatch}
+                  onMouseOver={(e) => {
+                    if (!matchesSeleccionados.get(indiceActual)?.esNoMatch) {
+                      e.currentTarget.style.backgroundColor = "#fef2f2";
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!matchesSeleccionados.get(indiceActual)?.esNoMatch) {
+                      e.currentTarget.style.backgroundColor = "white";
+                    }
+                  }}
+                  >
+                    <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+                      <div style={{flex: 1}}>
+                        <div style={{fontSize: "16px", fontWeight: "bold", color: "#dc3545"}}>
+                          ❌ NO MATCH
+                        </div>
+                        <div style={{fontSize: "13px", color: "#6c757d", marginTop: "4px"}}>
+                          Ninguna opción es correcta
+                        </div>
+                      </div>
+                      {matchesSeleccionados.get(indiceActual)?.esNoMatch && (
+                        <div style={{
+                          backgroundColor: "#dc3545",
+                          color: "white",
+                          padding: "6px 12px",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: "bold"
+                        }}>
+                          SELECCIONADO
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ponderaciones */}
+              <WeightAdjuster
+                weights={pesos}
+                onWeightChange={(k, v) => setPesos({ ...pesos, [k]: v })}
+              />
             </div>
           </div>
-
-          {/* Bloque: Ponderaciones */}
-          <WeightAdjuster
-            weights={pesos}
-            onWeightChange={(k, v) => setPesos({ ...pesos, [k]: v })}
-          />
         </>
       )}
 
