@@ -317,7 +317,7 @@ export default function App() {
   }
 
   /** Calcula puntuación detallada entre dos productos */
-  function calcularPuntuacionDetallada(productoRef, productoMatch, mostrarLogs = false) {
+  function calcularPuntuacionDetallada(productoRef, productoMatch) {
     const puntuaciones = {
       codiprod: 0,
       ean: 0,
@@ -332,29 +332,13 @@ export default function App() {
       total: 0
     };
 
-    if (mostrarLogs) {
-      console.log("\n═══════════════════════════════════════════════════════════════");
-      console.log("🔍 ANÁLISIS DETALLADO DE MATCHING");
-      console.log("═══════════════════════════════════════════════════════════════");
-      console.log(`📦 Producto a matchear: ${productoRef[columnasReferencia.DESCRIPCION]}`);
-      console.log(`🎯 Mejor candidato:     ${productoMatch[columnasMatching.DESCRIPCION]}`);
-      console.log("───────────────────────────────────────────────────────────────\n");
-    }
-
     // CODIPROD - PRIORIDAD MÁXIMA
     const codiProdRef = (productoRef[columnasReferencia.CODIPROD] ?? "").toString().trim();
     const codiProdMatch = (productoMatch[columnasMatching.CODIPROD] ?? "").toString().trim();
     if (codiProdRef && codiProdMatch && codiProdRef === codiProdMatch) {
       puntuaciones.codiprod = pesos.codiProdExacto;
-      if (mostrarLogs) {
-        console.log("✅ CODIPROD: MATCH EXACTO → +%s pts", pesos.codiProdExacto);
-        console.log(`   "${codiProdRef}" = "${codiProdMatch}"\n`);
-      }
       puntuaciones.total = pesos.codiProdExacto;
       return puntuaciones;
-    } else if (mostrarLogs && (codiProdRef || codiProdMatch)) {
-      console.log("❌ CODIPROD: No coincide → +0 pts");
-      console.log(`   "${codiProdRef}" ≠ "${codiProdMatch}"\n`);
     }
 
     // EAN
@@ -364,43 +348,12 @@ export default function App() {
     const eanMatch = normalizarEAN(eanMatchOriginal);
     if (eanRef && eanMatch && eanRef === eanMatch) {
       puntuaciones.ean = pesos.eanExacto;
-      if (mostrarLogs) {
-        console.log("✅ EAN: MATCH EXACTO → +%s pts", pesos.eanExacto);
-        if (eanRefOriginal !== eanRef) {
-          console.log(`   "${eanRefOriginal}" → "${eanRef}"\n`);
-        } else {
-          console.log(`   "${eanRef}"\n`);
-        }
-      }
-    } else if (mostrarLogs && (eanRef || eanMatch)) {
-      console.log("❌ EAN: No coincide → +0 pts");
-      console.log(`   "${eanRef}" ≠ "${eanMatch}"\n`);
     }
 
     // AECOC - Puntuación progresiva
     const aecocRef = productoRef[columnasReferencia.AECOC];
     const aecocMatch = productoMatch[columnasMatching.AECOC];
     puntuaciones.aecoc = puntuacionAECOC(aecocRef, aecocMatch, pesos.aecoc);
-    if (mostrarLogs && (aecocRef || aecocMatch)) {
-      const normalizarAECOC = (aecoc) => {
-        let s = String(aecoc || "").trim().replace(/\D/g, "");
-        return s.padEnd(14, "0");
-      };
-      const aecocRefNorm = normalizarAECOC(aecocRef);
-      const aecocMatchNorm = normalizarAECOC(aecocMatch);
-      let digitosCoincidentes = 0;
-      for (let i = 0; i < 14; i += 2) {
-        if (aecocRefNorm.substring(i, i + 2) === aecocMatchNorm.substring(i, i + 2)) {
-          digitosCoincidentes += 2;
-        } else {
-          break;
-        }
-      }
-      const porcentaje = Math.min(digitosCoincidentes / 10, 1);
-      console.log(`${puntuaciones.aecoc > 0 ? '✅' : '⚠️'} AECOC: ${digitosCoincidentes}/14 dígitos (${Math.round(porcentaje * 100)}%) → +${puntuaciones.aecoc.toFixed(1)} pts`);
-      console.log(`   "${aecocRef}" → "${aecocRefNorm}"`);
-      console.log(`   "${aecocMatch}" → "${aecocMatchNorm}"\n`);
-    }
 
     const marcaRefOriginal = productoRef[columnasReferencia.MARCA] ?? "";
     const marcaMatchOriginal = productoMatch[columnasMatching.MARCA] ?? "";
@@ -408,17 +361,6 @@ export default function App() {
     const marcaMatch = normalizarDescripcion(marcaMatchOriginal);
     if (marcaRef && marcaMatch && marcaRef === marcaMatch) {
       puntuaciones.marca = pesos.marca;
-      if (mostrarLogs) {
-        console.log("✅ MARCA: MATCH → +%s pts", pesos.marca);
-        if (marcaRefOriginal !== marcaRef) {
-          console.log(`   "${marcaRefOriginal}" → "${marcaRef}"\n`);
-        } else {
-          console.log(`   "${marcaRef}"\n`);
-        }
-      }
-    } else if (mostrarLogs && (marcaRef || marcaMatch)) {
-      console.log("❌ MARCA: No coincide → +0 pts");
-      console.log(`   "${marcaRef}" ≠ "${marcaMatch}"\n`);
     }
 
     const cantRefOriginal = productoRef[columnasReferencia.CANTIDAD];
@@ -427,17 +369,6 @@ export default function App() {
     const cantMatch = normalizarNumero(cantMatchOriginal);
     if (cantRef !== null && cantMatch !== null && cantRef === cantMatch) {
       puntuaciones.cantidad = pesos.cantidadExacta;
-      if (mostrarLogs) {
-        console.log("✅ CANTIDAD: MATCH → +%s pts", pesos.cantidadExacta);
-        if (cantRefOriginal != cantRef) {
-          console.log(`   "${cantRefOriginal}" → ${cantRef}\n`);
-        } else {
-          console.log(`   ${cantRef}\n`);
-        }
-      }
-    } else if (mostrarLogs && (cantRef !== null || cantMatch !== null)) {
-      console.log("❌ CANTIDAD: No coincide → +0 pts");
-      console.log(`   ${cantRef} ≠ ${cantMatch}\n`);
     }
 
     const medRefOriginal = productoRef[columnasReferencia.MEDIDA] ?? "";
@@ -446,17 +377,6 @@ export default function App() {
     const medMatch = normalizarUnidadMedida(medMatchOriginal);
     if (medRef && medMatch && medRef === medMatch) {
       puntuaciones.medida = pesos.medida;
-      if (mostrarLogs) {
-        console.log("✅ MEDIDA: MATCH → +%s pts", pesos.medida);
-        if (medRefOriginal !== medRef || medMatchOriginal !== medMatch) {
-          console.log(`   "${medRefOriginal}" → "${medRef}"\n`);
-        } else {
-          console.log(`   "${medRef}"\n`);
-        }
-      }
-    } else if (mostrarLogs && (medRef || medMatch)) {
-      console.log("❌ MEDIDA: No coincide → +0 pts");
-      console.log(`   "${medRef}" ≠ "${medMatch}"\n`);
     }
 
     const formRefOriginal = productoRef[columnasReferencia.FORMATO] ?? "";
@@ -465,17 +385,6 @@ export default function App() {
     const formMatch = normalizarDescripcion(formMatchOriginal);
     if (formRef && formMatch && formRef === formMatch) {
       puntuaciones.formato = pesos.formato;
-      if (mostrarLogs) {
-        console.log("✅ FORMATO: MATCH → +%s pts", pesos.formato);
-        if (formRefOriginal !== formRef) {
-          console.log(`   "${formRefOriginal}" → "${formRef}"\n`);
-        } else {
-          console.log(`   "${formRef}"\n`);
-        }
-      }
-    } else if (mostrarLogs && (formRef || formMatch)) {
-      console.log("❌ FORMATO: No coincide → +0 pts");
-      console.log(`   "${formRef}" ≠ "${formMatch}"\n`);
     }
 
     const sabRefOriginal = productoRef[columnasReferencia.SABOR] ?? "";
@@ -484,17 +393,6 @@ export default function App() {
     const sabMatch = normalizarDescripcion(sabMatchOriginal);
     if (sabRef && sabMatch && sabRef === sabMatch) {
       puntuaciones.sabor = pesos.sabor;
-      if (mostrarLogs) {
-        console.log("✅ SABOR: MATCH → +%s pts", pesos.sabor);
-        if (sabRefOriginal !== sabRef) {
-          console.log(`   "${sabRefOriginal}" → "${sabRef}"\n`);
-        } else {
-          console.log(`   "${sabRef}"\n`);
-        }
-      }
-    } else if (mostrarLogs && (sabRef || sabMatch)) {
-      console.log("❌ SABOR: No coincide → +0 pts");
-      console.log(`   "${sabRef}" ≠ "${sabMatch}"\n`);
     }
 
     const uniRefOriginal = productoRef[columnasReferencia.UNIDADES];
@@ -503,17 +401,6 @@ export default function App() {
     const uniMatch = normalizarNumero(uniMatchOriginal);
     if (uniRef !== null && uniMatch !== null && uniRef === uniMatch) {
       puntuaciones.unidades = pesos.unidades;
-      if (mostrarLogs) {
-        console.log("✅ UNIDADES: MATCH → +%s pts", pesos.unidades);
-        if (uniRefOriginal != uniRef) {
-          console.log(`   "${uniRefOriginal}" → ${uniRef}\n`);
-        } else {
-          console.log(`   ${uniRef}\n`);
-        }
-      }
-    } else if (mostrarLogs && (uniRef !== null || uniMatch !== null)) {
-      console.log("❌ UNIDADES: No coincide → +0 pts");
-      console.log(`   ${uniRef} ≠ ${uniMatch}\n`);
     }
 
     const descRefOriginal = productoRef[columnasReferencia.DESCRIPCION];
@@ -522,19 +409,8 @@ export default function App() {
     const descMatch = tokenizar(descMatchOriginal);
     const similitud = similitudMejorada(descRef, descMatch);
     puntuaciones.descripcion = similitud * pesos.descripcionJaccard;
-    if (mostrarLogs) {
-      console.log(`${puntuaciones.descripcion > 20 ? '✅' : '⚠️'} DESCRIPCIÓN: Similitud ${(similitud * 100).toFixed(1)}% → +${puntuaciones.descripcion.toFixed(1)} pts`);
-      console.log(`   Tokens Ref:   [${descRef.join(', ')}]`);
-      console.log(`   Tokens Match: [${descMatch.join(', ')}]\n`);
-    }
 
     puntuaciones.total = Object.values(puntuaciones).reduce((a, b) => a + b, 0) - puntuaciones.total;
-
-    if (mostrarLogs) {
-      console.log("═══════════════════════════════════════════════════════════════");
-      console.log(`🎯 PUNTUACIÓN TOTAL: ${puntuaciones.total.toFixed(1)} puntos`);
-      console.log("═══════════════════════════════════════════════════════════════\n");
-    }
 
     return puntuaciones;
   }
@@ -1097,46 +973,21 @@ export default function App() {
                       💡 Atajos: 1-5 = Seleccionar | 0 = No Match | ←→ = Navegar
                     </div>
                   </div>
-                  <div style={{display: "flex", gap: "6px"}}>
-                    <button
-                      onClick={() => setPonderacionesVisible(!ponderacionesVisible)}
-                      style={{
-                        backgroundColor: "#94a3b8",
-                        color: "white",
-                        border: "none",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "11px",
-                        fontWeight: "bold"
-                      }}
-                    >
-                      ⚖️ Pesos
-                    </button>
-                    <button
-                      onClick={() => {
-                        const top5 = calcularTop5ParaActual();
-                        if (top5.length > 0) {
-                          console.clear();
-                          calcularPuntuacionDetallada(filasReferencia[indiceActual], top5[0].producto, true);
-                        } else {
-                          console.log("❌ No hay matches para analizar");
-                        }
-                      }}
-                      style={{
-                        backgroundColor: "#6366f1",
-                        color: "white",
-                        border: "none",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "11px",
-                        fontWeight: "bold"
-                      }}
-                    >
-                      🔍 Logs
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setPonderacionesVisible(!ponderacionesVisible)}
+                    style={{
+                      backgroundColor: "#94a3b8",
+                      color: "white",
+                      border: "none",
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "11px",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    ⚖️ Pesos
+                  </button>
                 </div>
 
                 <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
