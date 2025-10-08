@@ -1139,7 +1139,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{display: "flex", flexDirection: "column", gap: "8px"}}>
+                <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
                   {calcularTop5ParaActual().map((match, idx) => (
                     <MatchScore
                       key={idx}
@@ -1154,7 +1154,7 @@ export default function App() {
                   <div style={{
                     border: "2px solid #dc3545",
                     borderRadius: "6px",
-                    padding: "10px",
+                    padding: "6px 8px",
                     backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch && !matchesSeleccionados.get(indiceActual)?.tieneComentario ? "#fee2e2" : "white",
                     cursor: "pointer",
                     transition: "all 0.2s ease",
@@ -1174,8 +1174,8 @@ export default function App() {
                   >
                     <div style={{
                       position: "absolute",
-                      top: "10px",
-                      left: "10px",
+                      top: "8px",
+                      left: "8px",
                       backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch && !matchesSeleccionados.get(indiceActual)?.tieneComentario ? "#dc3545" : "#dc2626",
                       color: "white",
                       padding: "1px 5px",
@@ -1193,10 +1193,10 @@ export default function App() {
                     </div>
                     <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: "30px"}}>
                       <div style={{flex: 1}}>
-                        <div style={{fontSize: "13px", fontWeight: "bold", color: "#dc3545"}}>
+                        <div style={{fontSize: "11px", fontWeight: "bold", color: "#dc3545"}}>
                           ❌ NO MATCH
                         </div>
-                        <div style={{fontSize: "11px", color: "#6c757d", marginTop: "2px"}}>
+                        <div style={{fontSize: "9px", color: "#6c757d", marginTop: "1px"}}>
                           Ninguna opción es correcta
                         </div>
                       </div>
