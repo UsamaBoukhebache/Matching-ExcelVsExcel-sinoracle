@@ -180,8 +180,7 @@ function puntuacionAECOC(aecocA, aecocB, pesoBase) {
   
   const normalizarAECOC = (aecoc) => {
     let s = String(aecoc).trim().replace(/\D/g, "");
-    s = "0" + s;
-    return s.padEnd(15, "0");
+    return s.padEnd(14, "0");
   };
   
   const a = normalizarAECOC(aecocA);
@@ -385,8 +384,7 @@ export default function App() {
     if (mostrarLogs && (aecocRef || aecocMatch)) {
       const normalizarAECOC = (aecoc) => {
         let s = String(aecoc || "").trim().replace(/\D/g, "");
-        s = "0" + s;
-        return s.padEnd(15, "0");
+        return s.padEnd(14, "0");
       };
       const aecocRefNorm = normalizarAECOC(aecocRef);
       const aecocMatchNorm = normalizarAECOC(aecocMatch);
