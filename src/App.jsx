@@ -860,13 +860,13 @@ export default function App() {
               inputRef={inputFicheroReferencia}
               fileCount={filasReferencia.length}
               onUpload={manejarFicheroReferencia}
-              label="Excel Pequeño"
+              label="Productos a Matchear"
             />
             <FileUploader
               inputRef={inputFicheroMatching}
               fileCount={filasMatching.length}
               onUpload={manejarFicheroMatching}
-              label="Excel Grande"
+              label="Catálogo/Base de Datos"
             />
           </div>
         </div>
@@ -1252,7 +1252,7 @@ export default function App() {
 
       {!filasReferencia.length || !filasMatching.length ? (
         <div style={{ marginTop: 12, color: "#555" }}>
-          Sube dos archivos Excel: uno con los productos que quieres matchear y otro con los productos de referencia.
+          Sube dos archivos Excel: <strong>Productos a Matchear</strong> (los que necesitas encontrar) y <strong>Catálogo/Base de Datos</strong> (donde buscarás las coincidencias).
         </div>
       ) : null}
     </div>

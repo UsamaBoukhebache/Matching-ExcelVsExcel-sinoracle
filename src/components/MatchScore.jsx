@@ -53,80 +53,70 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
           </div>
         </div>
         
-        {/* Desglose de puntuaciones */}
+        {/* Desglose de puntuaciones - SOLO las que aportan valor */}
         <div style={{
-          marginTop: "4px",
-          display: "flex",
-          gap: "4px",
-          flexWrap: "wrap",
-          fontSize: "9px"
+          marginTop: "6px",
+          padding: "6px",
+          backgroundColor: "#f8fafc",
+          borderRadius: "4px",
+          fontSize: "9px",
+          lineHeight: "1.4"
         }}>
-          {match.codiprod > 0 && (
-            <span style={{
-              backgroundColor: "#fee2e2",
-              color: "#dc2626",
-              padding: "1px 4px",
-              borderRadius: "3px",
-              fontWeight: "600"
-            }}>
-              🎯+{match.codiprod.toFixed(0)}
-            </span>
-          )}
-          {match.ean > 0 && (
-            <span style={{
-              backgroundColor: "#dcfce7",
-              color: "#059669",
-              padding: "1px 4px",
-              borderRadius: "3px",
-              fontWeight: "600"
-            }}>
-              EAN+{match.ean.toFixed(0)}
-            </span>
-          )}
-          {match.aecoc > 0 && (
-            <span style={{
-              backgroundColor: "#dcfce7",
-              color: "#059669",
-              padding: "1px 4px",
-              borderRadius: "3px",
-              fontWeight: "600"
-            }}>
-              AEC+{match.aecoc.toFixed(0)}
-            </span>
-          )}
-          {match.marca > 0 && (
-            <span style={{
-              backgroundColor: "#dbeafe",
-              color: "#2563eb",
-              padding: "1px 4px",
-              borderRadius: "3px",
-              fontWeight: "600"
-            }}>
-              M+{match.marca.toFixed(0)}
-            </span>
-          )}
-          {match.descripcion > 0 && (
-            <span style={{
-              backgroundColor: "#e0e7ff",
-              color: "#4f46e5",
-              padding: "1px 4px",
-              borderRadius: "3px",
-              fontWeight: "600"
-            }}>
-              D+{match.descripcion.toFixed(0)}
-            </span>
-          )}
-          {match.formato > 0 && (
-            <span style={{
-              backgroundColor: "#fef3c7",
-              color: "#d97706",
-              padding: "1px 4px",
-              borderRadius: "3px",
-              fontWeight: "600"
-            }}>
-              F+{match.formato.toFixed(0)}
-            </span>
-          )}
+          <div style={{fontWeight: "bold", marginBottom: "3px", fontSize: "10px", color: "#475569"}}>
+            📊 Desglose de Puntuación:
+          </div>
+          <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px"}}>
+            {match.codiprod > 0 && (
+              <span style={{color: "#059669"}}>
+                🎯 CODIPROD: <b>+{match.codiprod.toFixed(0)}</b>
+              </span>
+            )}
+            {match.ean > 0 && (
+              <span style={{color: "#059669"}}>
+                🏷️ EAN: <b>+{match.ean.toFixed(0)}</b>
+              </span>
+            )}
+            {match.aecoc > 0 && (
+              <span style={{color: "#059669"}}>
+                🔢 AECOC: <b>+{match.aecoc.toFixed(0)}</b>
+              </span>
+            )}
+            {match.marca > 0 && (
+              <span style={{color: "#059669"}}>
+                ™️ Marca: <b>+{match.marca.toFixed(0)}</b>
+              </span>
+            )}
+            {match.cantidad > 0 && (
+              <span style={{color: "#059669"}}>
+                📏 Cantidad: <b>+{match.cantidad.toFixed(0)}</b>
+              </span>
+            )}
+            {match.medida > 0 && (
+              <span style={{color: "#059669"}}>
+                📐 Medida: <b>+{match.medida.toFixed(0)}</b>
+              </span>
+            )}
+            {match.formato > 0 && (
+              <span style={{color: "#059669"}}>
+                📦 Formato: <b>+{match.formato.toFixed(0)}</b>
+              </span>
+            )}
+            {match.sabor > 0 && (
+              <span style={{color: "#059669"}}>
+                🍋 Sabor: <b>+{match.sabor.toFixed(0)}</b>
+              </span>
+            )}
+            {match.unidades > 0 && (
+              <span style={{color: "#059669"}}>
+                🔢 Unidades: <b>+{match.unidades.toFixed(0)}</b>
+              </span>
+            )}
+            {match.descripcion > 0 && (
+              <span style={{color: "#059669"}}>
+                📝 Descripción: <b>+{match.descripcion.toFixed(1)}</b>
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
