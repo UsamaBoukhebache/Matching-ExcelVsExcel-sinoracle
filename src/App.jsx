@@ -333,6 +333,9 @@ export default function App() {
   // Estado para colapsar/expandir el panel de ponderaciones
   const [ponderacionesVisible, setPonderacionesVisible] = useState(false);
 
+  // Estado para el comentario de NO MATCH
+  const [comentarioNoMatch, setComentarioNoMatch] = useState("");
+
   /** Cargar Excel de referencia */
   function manejarFicheroReferencia(e) {
     const file = e.target.files?.[0];
@@ -669,6 +672,9 @@ export default function App() {
     
     setMatchesSeleccionados(nuevosMatches);
     
+    // Limpiar comentario
+    setComentarioNoMatch("");
+    
     // Auto-avanzar al siguiente producto si no es el último
     if (indiceActual < filasReferencia.length - 1) {
       setTimeout(() => {
@@ -698,6 +704,45 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    
+    // Limpiar comentario
+    setComentarioNoMatch("");
+    
+    // Auto-avanzar al siguiente producto si no es el último
+    if (indiceActual < filasReferencia.length - 1) {
+      setTimeout(() => {
+        setIndiceActual(prev => prev + 1);
+      }, 300); // Pequeño delay para que se vea el feedback visual
+    }
+  }
+
+  /** Seleccionar NO MATCH con comentario */
+  function seleccionarNoMatchConComentario() {
+    if (!comentarioNoMatch.trim()) return;
+    
+    const nuevosMatches = new Map(matchesSeleccionados);
+    const matchAnterior = matchesSeleccionados.get(indiceActual);
+    
+    nuevosMatches.set(indiceActual, {
+      codiprodpx: comentarioNoMatch.trim(),
+      esNoMatch: true,
+      tieneComentario: true
+    });
+    
+    // Actualizar contadores
+    if (!matchAnterior) {
+      // Nuevo NO MATCH
+      setContadorNoMatches(prev => prev + 1);
+    } else if (!matchAnterior.esNoMatch) {
+      // Cambio de match a NO MATCH
+      setContadorMatches(prev => prev - 1);
+      setContadorNoMatches(prev => prev + 1);
+    }
+    
+    setMatchesSeleccionados(nuevosMatches);
+    
+    // Limpiar comentario
+    setComentarioNoMatch("");
     
     // Auto-avanzar al siguiente producto si no es el último
     if (indiceActual < filasReferencia.length - 1) {
@@ -826,6 +871,11 @@ export default function App() {
       });
     }
   }, [indiceActual, filasReferencia.length]);
+
+  // Limpiar comentario cuando cambia el índice actual
+  useEffect(() => {
+    setComentarioNoMatch("");
+  }, [indiceActual]);
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');
@@ -1053,10 +1103,10 @@ export default function App() {
                       {isProcessed && (
                         <div style={{
                           fontSize: "10px",
-                          color: match.esNoMatch ? "#dc2626" : "#059669",
+                          color: match.esNoMatch ? (match.tieneComentario ? "#f97316" : "#dc2626") : "#059669",
                           fontWeight: "600"
                         }}>
-                          {match.esNoMatch ? "❌ NO MATCH" : `✅ ${match.codiprodpx}`}
+                          {match.esNoMatch ? (match.tieneComentario ? `💬 "${match.codiprodpx.substring(0, 25)}..."` : "❌ NO MATCH") : `✅ ${match.codiprodpx}`}
                         </div>
                       )}
                     </div>
@@ -1186,7 +1236,7 @@ export default function App() {
                     border: "2px solid #dc3545",
                     borderRadius: "6px",
                     padding: "10px",
-                    backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch ? "#fee2e2" : "white",
+                    backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch && !matchesSeleccionados.get(indiceActual)?.tieneComentario ? "#fee2e2" : "white",
                     cursor: "pointer",
                     transition: "all 0.2s ease"
                   }}
@@ -1211,7 +1261,7 @@ export default function App() {
                           Ninguna opción es correcta
                         </div>
                       </div>
-                      {matchesSeleccionados.get(indiceActual)?.esNoMatch && (
+                      {matchesSeleccionados.get(indiceActual)?.esNoMatch && !matchesSeleccionados.get(indiceActual)?.tieneComentario && (
                         <div style={{
                           backgroundColor: "#dc3545",
                           color: "white",
@@ -1224,6 +1274,88 @@ export default function App() {
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Opción NO MATCH con Comentario */}
+                  <div style={{
+                    border: "2px solid #f97316",
+                    borderRadius: "6px",
+                    padding: "10px",
+                    backgroundColor: matchesSeleccionados.get(indiceActual)?.tieneComentario ? "#fff7ed" : "white",
+                    transition: "all 0.2s ease"
+                  }}>
+                    <div style={{marginBottom: "8px"}}>
+                      <div style={{fontSize: "13px", fontWeight: "bold", color: "#f97316", marginBottom: "4px"}}>
+                        💬 NO MATCH con Comentario
+                      </div>
+                      <div style={{fontSize: "11px", color: "#6c757d", marginBottom: "6px"}}>
+                        Añade un comentario para explicar por qué no hay match
+                      </div>
+                      <input
+                        type="text"
+                        value={comentarioNoMatch}
+                        onChange={(e) => setComentarioNoMatch(e.target.value)}
+                        placeholder="Escribe tu comentario aquí..."
+                        style={{
+                          width: "100%",
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "4px",
+                          outline: "none",
+                          transition: "all 0.2s ease"
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = "#f97316";
+                          e.target.style.boxShadow = "0 0 0 2px rgba(249, 115, 22, 0.1)";
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = "#e2e8f0";
+                          e.target.style.boxShadow = "none";
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={seleccionarNoMatchConComentario}
+                      disabled={!comentarioNoMatch.trim()}
+                      style={{
+                        width: "100%",
+                        backgroundColor: comentarioNoMatch.trim() ? "#f97316" : "#e2e8f0",
+                        color: comentarioNoMatch.trim() ? "white" : "#94a3b8",
+                        border: "none",
+                        padding: "6px 12px",
+                        borderRadius: "4px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        cursor: comentarioNoMatch.trim() ? "pointer" : "not-allowed",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseOver={(e) => {
+                        if (comentarioNoMatch.trim()) {
+                          e.target.style.backgroundColor = "#ea580c";
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (comentarioNoMatch.trim()) {
+                          e.target.style.backgroundColor = "#f97316";
+                        }
+                      }}
+                    >
+                      {matchesSeleccionados.get(indiceActual)?.tieneComentario ? "✓ Comentario Guardado" : "Guardar Comentario"}
+                    </button>
+                    {matchesSeleccionados.get(indiceActual)?.tieneComentario && (
+                      <div style={{
+                        marginTop: "6px",
+                        padding: "6px 8px",
+                        backgroundColor: "#f97316",
+                        color: "white",
+                        borderRadius: "4px",
+                        fontSize: "10px",
+                        fontWeight: "600"
+                      }}>
+                        📝 "{matchesSeleccionados.get(indiceActual)?.codiprodpx}"
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
