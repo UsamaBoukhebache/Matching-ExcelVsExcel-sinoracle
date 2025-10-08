@@ -761,6 +761,46 @@ export default function App() {
     setComentarioNoMatch("");
   }, [indiceActual]);
 
+  // Atajos de teclado para selección rápida
+  useEffect(() => {
+    if (!filasReferencia.length || !filasMatching.length) return;
+    
+    const handleKeyPress = (e) => {
+      // Ignorar si está escribiendo en el input de comentario
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      const top5 = calcularTop5ParaActual();
+      const key = e.key;
+      
+      // Números 1-5 para seleccionar opciones del top 5
+      if (key >= '1' && key <= '5') {
+        const index = parseInt(key) - 1;
+        if (top5[index]) {
+          seleccionarMatch(top5[index].producto);
+        }
+      }
+      // 0 para NO MATCH
+      else if (key === '0') {
+        seleccionarNoMatch();
+      }
+      // Flecha derecha o Enter para avanzar
+      else if (key === 'ArrowRight' || key === 'Enter') {
+        if (indiceActual < filasReferencia.length - 1) {
+          setIndiceActual(prev => prev + 1);
+        }
+      }
+      // Flecha izquierda para retroceder
+      else if (key === 'ArrowLeft') {
+        if (indiceActual > 0) {
+          setIndiceActual(prev => prev - 1);
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [filasReferencia, filasMatching, indiceActual, columnasReferencia, columnasMatching]);
+
   const handleLogout = () => {
     localStorage.removeItem('userSession');
     setIsAuthenticated(false);
@@ -1049,9 +1089,14 @@ export default function App() {
                 overflow: "auto"
               }}>
                 <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px"}}>
-                  <h3 style={{margin: 0, fontSize: "14px", color: "#1e293b"}}>
-                    🔍 Coincidencias
-                  </h3>
+                  <div style={{display: "flex", flexDirection: "column", gap: "4px"}}>
+                    <h3 style={{margin: 0, fontSize: "14px", color: "#1e293b"}}>
+                      🔍 Coincidencias
+                    </h3>
+                    <div style={{fontSize: "9px", color: "#64748b", fontStyle: "italic"}}>
+                      💡 Atajos: 1-5 = Seleccionar | 0 = No Match | ←→ = Navegar
+                    </div>
+                  </div>
                   <div style={{display: "flex", gap: "6px"}}>
                     <button
                       onClick={() => setPonderacionesVisible(!ponderacionesVisible)}
@@ -1102,6 +1147,7 @@ export default function App() {
                       columnasMatching={columnasMatching}
                       onSelect={() => seleccionarMatch(match.producto)}
                       isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
+                      numeroAtajo={idx + 1}
                     />
                   ))}
                   
@@ -1111,7 +1157,8 @@ export default function App() {
                     padding: "10px",
                     backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch && !matchesSeleccionados.get(indiceActual)?.tieneComentario ? "#fee2e2" : "white",
                     cursor: "pointer",
-                    transition: "all 0.2s ease"
+                    transition: "all 0.2s ease",
+                    position: "relative"
                   }}
                   onClick={seleccionarNoMatch}
                   onMouseOver={(e) => {
@@ -1125,7 +1172,26 @@ export default function App() {
                     }
                   }}
                   >
-                    <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+                    <div style={{
+                      position: "absolute",
+                      top: "10px",
+                      left: "10px",
+                      backgroundColor: matchesSeleccionados.get(indiceActual)?.esNoMatch && !matchesSeleccionados.get(indiceActual)?.tieneComentario ? "#dc3545" : "#dc2626",
+                      color: "white",
+                      padding: "1px 5px",
+                      borderRadius: "50%",
+                      fontSize: "10px",
+                      fontWeight: "bold",
+                      minWidth: "18px",
+                      height: "18px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center"
+                    }}>
+                      0
+                    </div>
+                    <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: "30px"}}>
                       <div style={{flex: 1}}>
                         <div style={{fontSize: "13px", fontWeight: "bold", color: "#dc3545"}}>
                           ❌ NO MATCH

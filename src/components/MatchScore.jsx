@@ -1,4 +1,4 @@
-export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
+export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo }) {
   return (
     <div 
       onClick={onSelect}
@@ -24,6 +24,27 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
         }
       }}
     >
+      {/* Badge de número de atajo */}
+      <div style={{
+        position: "absolute",
+        top: "10px",
+        left: "10px",
+        backgroundColor: isSelected ? "#22c55e" : "#6366f1",
+        color: "white",
+        padding: "1px 5px",
+        borderRadius: "50%",
+        fontSize: "10px",
+        fontWeight: "bold",
+        minWidth: "18px",
+        height: "18px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center"
+      }}>
+        {numeroAtajo}
+      </div>
+
       {/* Badge de puntuación */}
       <div style={{
         position: "absolute",
@@ -40,7 +61,7 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
       </div>
 
       {/* Información del producto */}
-      <div style={{paddingRight: "70px"}}>
+      <div style={{paddingRight: "70px", paddingLeft: "30px"}}>
         <div style={{fontSize: "12px", fontWeight: "bold", color: "#1e293b", marginBottom: "4px", lineHeight: "1.3"}}>
           {match.producto[columnasMatching.DESCRIPCION]}
         </div>
