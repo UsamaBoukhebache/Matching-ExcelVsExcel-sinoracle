@@ -1,6 +1,3 @@
-import React from 'react';
-import { styles } from '../styles';
-
 export function MatchScore({ match, columnasMatching, onSelect, isSelected }) {
   return (
     <div 

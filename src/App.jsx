@@ -6,14 +6,7 @@ import { FileUploader } from "./components/FileUploader";
 import { ProductCard } from "./components/ProductCard";
 import { WeightAdjuster } from "./components/WeightAdjuster";
 import { MatchScore } from "./components/MatchScore";
-import logoMD from "./assets/logoMD.png";
 import Login from "./components/Login";
-
-/**
- * ---------------------------------------------
- *   Ayudas / Normalización / Utilidades
- * ---------------------------------------------
- */
 
 /** Normaliza EAN */
 function normalizarEAN(raw) {
@@ -31,28 +24,25 @@ function normalizarEAN(raw) {
   return s;
 }
 
-/** Normaliza números (elimina notación científica, formatos, etc.) */
+/** Normaliza números */
 function normalizarNumero(raw) {
   if (raw === undefined || raw === null || raw === "") return null;
   
-  // Si ya es un número válido
   if (typeof raw === 'number' && Number.isFinite(raw)) {
     return raw;
   }
   
   let s = String(raw).trim();
   
-  // Manejar notación científica
   if (/e[+-]?\d+/i.test(s)) {
     const asNumber = Number(raw);
     if (!Number.isFinite(asNumber)) return null;
     return asNumber;
   }
   
-  // Eliminar separadores de miles y convertir coma decimal a punto
-  s = s.replace(/\s+/g, ""); // Eliminar espacios
-  s = s.replace(/\./g, ""); // Eliminar puntos (separador de miles)
-  s = s.replace(/,/g, "."); // Convertir coma a punto (decimal)
+  s = s.replace(/\s+/g, "");
+  s = s.replace(/\./g, "");
+  s = s.replace(/,/g, ".");
   
   const num = parseFloat(s);
   return Number.isFinite(num) ? num : null;
@@ -64,8 +54,8 @@ function normalizarDescripcion(raw) {
   return String(raw)
     .trim()
     .toLowerCase()
-    .normalize("NFD").replace(/\p{Diacritic}/gu, "") // Eliminar acentos
-    .replace(/\s+/g, " "); // Normalizar espacios múltiples
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ");
 }
 
 /** Normaliza unidad de medida */
@@ -76,24 +66,14 @@ function normalizarUnidadMedida(raw) {
     .toLowerCase()
     .normalize("NFD").replace(/\p{Diacritic}/gu, "");
   
-  // Normalizar abreviaturas comunes
   const equivalencias = {
-    'kilogramo': 'kg',
-    'kilogramos': 'kg',
-    'kilo': 'kg',
-    'kilos': 'kg',
-    'gramo': 'g',
-    'gramos': 'g',
-    'litro': 'l',
-    'litros': 'l',
-    'mililitro': 'ml',
-    'mililitros': 'ml',
-    'unidad': 'u',
-    'unidades': 'u',
-    'metro': 'm',
-    'metros': 'm',
-    'centimetro': 'cm',
-    'centimetros': 'cm',
+    'kilogramo': 'kg', 'kilogramos': 'kg', 'kilo': 'kg', 'kilos': 'kg',
+    'gramo': 'g', 'gramos': 'g',
+    'litro': 'l', 'litros': 'l',
+    'mililitro': 'ml', 'mililitros': 'ml',
+    'unidad': 'u', 'unidades': 'u',
+    'metro': 'm', 'metros': 'm',
+    'centimetro': 'cm', 'centimetros': 'cm',
   };
   
   return equivalencias[s] || s;
@@ -103,45 +83,32 @@ function normalizarUnidadMedida(raw) {
 function tokenizar(str) {
   if (!str) return [];
   const normalizado = normalizarDescripcion(str);
-  
-  // Primero, proteger números con decimales (comas y puntos)
-  // Convertir "1,5" o "1.5" a "1_5" temporalmente para preservarlos
   let protegido = normalizado.replace(/(\d+)[,.](\d+)/g, '$1_$2');
-  
-  // Ahora eliminar caracteres especiales excepto guiones bajos (temporales)
   protegido = protegido.replace(/[^a-z0-9_]+/g, " ");
-  
-  // Split y restaurar los números decimales con punto
   return protegido
     .split(" ")
     .filter(Boolean)
-    .map(token => token.replace(/_/g, '.')); // Restaurar como punto decimal
+    .map(token => token.replace(/_/g, '.'));
 }
 
-/** Calcula similitud entre dos palabras usando distancia de Levenshtein normalizada */
+/** Calcula similitud entre dos palabras */
 function similitudPalabras(palabra1, palabra2) {
   if (!palabra1 || !palabra2) return 0;
   if (palabra1 === palabra2) return 1;
-  
-  // Solo considerar palabras de al menos 4 caracteres para evitar coincidencias falsas
   if (palabra1.length < 4 || palabra2.length < 4) return 0;
   
-  // Si una palabra está contenida en la otra, dar alta puntuación
   if (palabra1.includes(palabra2) || palabra2.includes(palabra1)) {
     const minLen = Math.min(palabra1.length, palabra2.length);
     const maxLen = Math.max(palabra1.length, palabra2.length);
-    // Solo si la palabra más corta tiene al menos 4 caracteres
     if (minLen >= 4) {
-      return minLen / maxLen * 0.8; // 80% de similitud si una contiene a la otra
+      return minLen / maxLen * 0.8;
     }
   }
   
-  // Distancia de Levenshtein
   const distancia = levenshtein(palabra1, palabra2);
   const maxLen = Math.max(palabra1.length, palabra2.length);
   const similitud = 1 - (distancia / maxLen);
   
-  // Solo considerar similitud si es mayor al 70% y ambas palabras son largas
   return similitud > 0.7 && palabra1.length >= 4 && palabra2.length >= 4 ? similitud : 0;
 }
 
@@ -174,22 +141,20 @@ function levenshtein(str1, str2) {
   return matrix[str2.length][str1.length];
 }
 
-/** Similitud mejorada que combina Jaccard con similitud de palabras parciales */
+/** Similitud mejorada */
 function similitudMejorada(tokensA, tokensB) {
   if (!tokensA.length || !tokensB.length) return 0;
   
-  // Similitud Jaccard tradicional para coincidencias exactas
   const A = new Set(tokensA);
   const B = new Set(tokensB);
   let coincidenciasExactas = 0;
   A.forEach(t => { if (B.has(t)) coincidenciasExactas++; });
   
-  // Similitud parcial para palabras abreviadas
   let similitudParcial = 0;
   let comparaciones = 0;
   
   tokensA.forEach(tokenA => {
-    if (tokenA.length >= 4) { // Solo considerar tokens de 4+ caracteres
+    if (tokenA.length >= 4) {
       tokensB.forEach(tokenB => {
         if (tokenB.length >= 4) {
           const sim = similitudPalabras(tokenA, tokenB);
@@ -202,32 +167,26 @@ function similitudMejorada(tokensA, tokensB) {
     }
   });
   
-  // Normalizar similitud parcial
   const similitudParcialNormalizada = comparaciones > 0 ? similitudParcial / comparaciones : 0;
-  
-  // Combinar ambas similitudes
   const union = A.size + B.size - coincidenciasExactas;
   const jaccardScore = union ? coincidenciasExactas / union : 0;
   
-  // Dar prioridad a coincidencias exactas, similitud parcial con peso menor
   return Math.max(jaccardScore, similitudParcialNormalizada * 0.5);
 }
 
-/** Puntuación AECOC progresiva (comparando de 2 en 2 con 0 imaginario al principio) */
+/** Puntuación AECOC progresiva */
 function puntuacionAECOC(aecocA, aecocB, pesoBase) {
   if (!aecocA || !aecocB) return 0;
   
-  // Normalizar: añadir 0 al principio si es necesario y rellenar con 0s hasta 14 caracteres
   const normalizarAECOC = (aecoc) => {
-    let s = String(aecoc).trim().replace(/\D/g, ""); // Solo dígitos
-    s = "0" + s; // Añadir 0 imaginario al principio
-    return s.padEnd(15, "0"); // Asegurar 15 caracteres (0 + 14)
+    let s = String(aecoc).trim().replace(/\D/g, "");
+    s = "0" + s;
+    return s.padEnd(15, "0");
   };
   
   const a = normalizarAECOC(aecocA);
   const b = normalizarAECOC(aecocB);
   
-  // Comparar de 2 en 2 dígitos
   let digitosCoincidentes = 0;
   for (let i = 0; i < 14; i += 2) {
     const parA = a.substring(i, i + 2);
@@ -236,19 +195,13 @@ function puntuacionAECOC(aecocA, aecocB, pesoBase) {
     if (parA === parB) {
       digitosCoincidentes += 2;
     } else {
-      break; // Si no coinciden, dejamos de comparar
+      break;
     }
   }
   
-  // Calcular puntuación progresiva
-  // 2 dígitos (1 par) = 20% del peso
-  // 4 dígitos (2 pares) = 40% del peso
-  // 6 dígitos (3 pares) = 60% del peso
-  // 8 dígitos (4 pares) = 80% del peso
-  // 10+ dígitos (5+ pares) = 100% del peso
   if (digitosCoincidentes === 0) return 0;
   
-  const porcentaje = Math.min(digitosCoincidentes / 10, 1); // Máximo 100%
+  const porcentaje = Math.min(digitosCoincidentes / 10, 1);
   return pesoBase * porcentaje;
 }
 
@@ -276,7 +229,7 @@ function adivinarColumnas(cabecera) {
     SABOR: pick(["sabor"], "SABOR"),
     EQUIVALE: pick(["equivale"], "EQUIVALE"),
     FACTOR: pick(["factor"], "FACTOR"),
-    CODIPRODPX: pick(["codiprodpx"], "CODIPRODPX"), // Nueva columna para exportación
+    CODIPRODPX: pick(["codiprodpx"], "CODIPRODPX"),
   };
 }
 
@@ -284,26 +237,14 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const handleLoginSuccess = (user) => {
-    console.log("Usuario logueado:", user);
+  const handleLoginSuccess = () => {
     setIsAuthenticated(true);
   };
 
-  // Referencias para los inputs de archivo
   const inputFicheroReferencia = useRef(null);
   const inputFicheroMatching = useRef(null);
   const listaMatchesRef = useRef(null);
   
-  // Contenedor principal con nueva clase
-  const AppContainer = ({ children }) => (
-    <div className="app-container">
-      <div className="logo-container">
-        <img src={logoMD} alt="MD Logo" className="app-logo" />
-      </div>
-      {children}
-    </div>
-  );
-
   // Estado principal
   const [filasReferencia, setFilasReferencia] = useState([]);
   const [filasMatching, setFilasMatching] = useState([]);
@@ -315,10 +256,8 @@ export default function App() {
   // Contadores de matches
   const [contadorMatches, setContadorMatches] = useState(0);
   const [contadorNoMatches, setContadorNoMatches] = useState(0);
-
-  // Pesos para el sistema de puntuación
   const [pesos, setPesos] = useState({
-    codiProdExacto: 1000, // Prioridad máxima si CODIPROD coincide
+    codiProdExacto: 1000,
     eanExacto: 150,
     aecoc: 100, 
     marca: 70,
@@ -329,11 +268,7 @@ export default function App() {
     unidades: 20,
     descripcionJaccard: 100,
   });
-
-  // Estado para colapsar/expandir el panel de ponderaciones
   const [ponderacionesVisible, setPonderacionesVisible] = useState(false);
-
-  // Estado para el comentario de NO MATCH
   const [comentarioNoMatch, setComentarioNoMatch] = useState("");
 
   /** Cargar Excel de referencia */
@@ -351,9 +286,6 @@ export default function App() {
 
       const cabecera = Object.keys(json[0]);
       const colDetectadas = adivinarColumnas(cabecera);
-      console.log('Referencia - Cabecera:', cabecera);
-      console.log('Referencia - Columnas detectadas:', colDetectadas);
-      console.log('Referencia - Primera fila:', json[0]);
       setColumnasReferencia(colDetectadas);
       setFilasReferencia(json);
       setIndiceActual(0);
@@ -379,9 +311,6 @@ export default function App() {
 
       const cabecera = Object.keys(json[0]);
       const colDetectadas = adivinarColumnas(cabecera);
-      console.log('Matching - Cabecera:', cabecera);
-      console.log('Matching - Columnas detectadas:', colDetectadas);
-      console.log('Matching - Primera fila:', json[0]);
       setColumnasMatching(colDetectadas);
       setFilasMatching(json);
     };
@@ -422,7 +351,6 @@ export default function App() {
         console.log("✅ CODIPROD: MATCH EXACTO → +%s pts", pesos.codiProdExacto);
         console.log(`   "${codiProdRef}" = "${codiProdMatch}"\n`);
       }
-      // Si CODIPROD coincide, es match directo
       puntuaciones.total = pesos.codiProdExacto;
       return puntuaciones;
     } else if (mostrarLogs && (codiProdRef || codiProdMatch)) {
@@ -476,7 +404,6 @@ export default function App() {
       console.log(`   "${aecocMatch}" → "${aecocMatchNorm}"\n`);
     }
 
-    // Marca (normalizada)
     const marcaRefOriginal = productoRef[columnasReferencia.MARCA] ?? "";
     const marcaMatchOriginal = productoMatch[columnasMatching.MARCA] ?? "";
     const marcaRef = normalizarDescripcion(marcaRefOriginal);
@@ -496,7 +423,6 @@ export default function App() {
       console.log(`   "${marcaRef}" ≠ "${marcaMatch}"\n`);
     }
 
-    // Cantidad (normalizada)
     const cantRefOriginal = productoRef[columnasReferencia.CANTIDAD];
     const cantMatchOriginal = productoMatch[columnasMatching.CANTIDAD];
     const cantRef = normalizarNumero(cantRefOriginal);
@@ -516,7 +442,6 @@ export default function App() {
       console.log(`   ${cantRef} ≠ ${cantMatch}\n`);
     }
 
-    // Medida (normalizada)
     const medRefOriginal = productoRef[columnasReferencia.MEDIDA] ?? "";
     const medMatchOriginal = productoMatch[columnasMatching.MEDIDA] ?? "";
     const medRef = normalizarUnidadMedida(medRefOriginal);
@@ -536,7 +461,6 @@ export default function App() {
       console.log(`   "${medRef}" ≠ "${medMatch}"\n`);
     }
 
-    // Formato (normalizado)
     const formRefOriginal = productoRef[columnasReferencia.FORMATO] ?? "";
     const formMatchOriginal = productoMatch[columnasMatching.FORMATO] ?? "";
     const formRef = normalizarDescripcion(formRefOriginal);
@@ -556,7 +480,6 @@ export default function App() {
       console.log(`   "${formRef}" ≠ "${formMatch}"\n`);
     }
 
-    // Sabor (normalizado)
     const sabRefOriginal = productoRef[columnasReferencia.SABOR] ?? "";
     const sabMatchOriginal = productoMatch[columnasMatching.SABOR] ?? "";
     const sabRef = normalizarDescripcion(sabRefOriginal);
@@ -576,7 +499,6 @@ export default function App() {
       console.log(`   "${sabRef}" ≠ "${sabMatch}"\n`);
     }
 
-    // Unidades (normalizadas)
     const uniRefOriginal = productoRef[columnasReferencia.UNIDADES];
     const uniMatchOriginal = productoMatch[columnasMatching.UNIDADES];
     const uniRef = normalizarNumero(uniRefOriginal);
@@ -596,7 +518,6 @@ export default function App() {
       console.log(`   ${uniRef} ≠ ${uniMatch}\n`);
     }
 
-    // Descripción (ya normalizada en tokenizar)
     const descRefOriginal = productoRef[columnasReferencia.DESCRIPCION];
     const descMatchOriginal = productoMatch[columnasMatching.DESCRIPCION];
     const descRef = tokenizar(descRefOriginal);
@@ -609,7 +530,6 @@ export default function App() {
       console.log(`   Tokens Match: [${descMatch.join(', ')}]\n`);
     }
 
-    // Total
     puntuaciones.total = Object.values(puntuaciones).reduce((a, b) => a + b, 0) - puntuaciones.total;
 
     if (mostrarLogs) {
@@ -628,7 +548,6 @@ export default function App() {
     const productoRef = filasReferencia[indiceActual];
     const candidatos = [];
     
-    // Calcular puntuaciones sin logs
     filasMatching.forEach((productoMatch, idx) => {
       const puntuacion = calcularPuntuacionDetallada(productoRef, productoMatch, false);
       if (puntuacion.total > 0) {
@@ -645,45 +564,32 @@ export default function App() {
     return candidatos.slice(0, 5);
   }
 
-  /** Seleccionar match para el producto actual */
   function seleccionarMatch(productoMatch) {
-    console.log('seleccionarMatch: productoMatch', productoMatch);
-    console.log('columnasMatching:', columnasMatching);
     const nuevosMatches = new Map(matchesSeleccionados);
     const matchAnterior = matchesSeleccionados.get(indiceActual);
     
-    const codiprodpx = productoMatch[columnasMatching.CODIPROD];
-    console.log('CODIPRODPX seleccionado:', codiprodpx);
-    
     nuevosMatches.set(indiceActual, {
-      codiprodpx,
+      codiprodpx: productoMatch[columnasMatching.CODIPROD],
       esNoMatch: false
     });
     
-    // Actualizar contadores
     if (!matchAnterior) {
-      // Nuevo match
       setContadorMatches(prev => prev + 1);
     } else if (matchAnterior.esNoMatch) {
-      // Cambio de NO MATCH a match
       setContadorMatches(prev => prev + 1);
       setContadorNoMatches(prev => prev - 1);
     }
     
     setMatchesSeleccionados(nuevosMatches);
-    
-    // Limpiar comentario
     setComentarioNoMatch("");
     
-    // Auto-avanzar al siguiente producto si no es el último
     if (indiceActual < filasReferencia.length - 1) {
       setTimeout(() => {
         setIndiceActual(prev => prev + 1);
-      }, 300); // Pequeño delay para que se vea el feedback visual
+      }, 300);
     }
   }
 
-  /** Seleccionar NO MATCH para el producto actual */
   function seleccionarNoMatch() {
     const nuevosMatches = new Map(matchesSeleccionados);
     const matchAnterior = matchesSeleccionados.get(indiceActual);
@@ -693,30 +599,23 @@ export default function App() {
       esNoMatch: true
     });
     
-    // Actualizar contadores
     if (!matchAnterior) {
-      // Nuevo NO MATCH
       setContadorNoMatches(prev => prev + 1);
     } else if (!matchAnterior.esNoMatch) {
-      // Cambio de match a NO MATCH
       setContadorMatches(prev => prev - 1);
       setContadorNoMatches(prev => prev + 1);
     }
     
     setMatchesSeleccionados(nuevosMatches);
-    
-    // Limpiar comentario
     setComentarioNoMatch("");
     
-    // Auto-avanzar al siguiente producto si no es el último
     if (indiceActual < filasReferencia.length - 1) {
       setTimeout(() => {
         setIndiceActual(prev => prev + 1);
-      }, 300); // Pequeño delay para que se vea el feedback visual
+      }, 300);
     }
   }
 
-  /** Seleccionar NO MATCH con comentario */
   function seleccionarNoMatchConComentario() {
     if (!comentarioNoMatch.trim()) return;
     
@@ -729,38 +628,29 @@ export default function App() {
       tieneComentario: true
     });
     
-    // Actualizar contadores
     if (!matchAnterior) {
-      // Nuevo NO MATCH
       setContadorNoMatches(prev => prev + 1);
     } else if (!matchAnterior.esNoMatch) {
-      // Cambio de match a NO MATCH
       setContadorMatches(prev => prev - 1);
       setContadorNoMatches(prev => prev + 1);
     }
     
     setMatchesSeleccionados(nuevosMatches);
-    
-    // Limpiar comentario
     setComentarioNoMatch("");
     
-    // Auto-avanzar al siguiente producto si no es el último
     if (indiceActual < filasReferencia.length - 1) {
       setTimeout(() => {
         setIndiceActual(prev => prev + 1);
-      }, 300); // Pequeño delay para que se vea el feedback visual
+      }, 300);
     }
   }
 
-  /** Exportar Excel con matches */
   function exportarExcelMatcheado() {
     if (!filasReferencia.length || !columnasReferencia) return;
-    console.log('Exportando Excel con columnasReferencia:', columnasReferencia);
+    
     const filasActualizadas = filasReferencia.map((fila, idx) => {
       const match = matchesSeleccionados.get(idx);
       const filaLimpia = { ...fila };
-      console.log('Fila', idx, 'match:', match);
-      // Añadir columna CODIPRODPX con el CODIPROD del excel grande
       filaLimpia[columnasReferencia.CODIPRODPX] = match?.codiprodpx ?? "";
       return filaLimpia;
     });
@@ -796,7 +686,6 @@ export default function App() {
       const matchesMap = new Map(JSON.parse(savedMatches));
       setMatchesSeleccionados(matchesMap);
       
-      // Recalcular contadores si no están guardados
       if (!savedContadorMatches && !savedContadorNoMatches) {
         let matches = 0;
         let noMatches = 0;
@@ -843,7 +732,6 @@ export default function App() {
     setIsLoading(false);
   }, []);
 
-  // Guardar progreso en localStorage
   useEffect(() => {
     if (isAuthenticated) {
       localStorage.setItem('matchesSeleccionados', JSON.stringify(Array.from(matchesSeleccionados.entries())));
@@ -857,10 +745,9 @@ export default function App() {
     }
   }, [isAuthenticated, matchesSeleccionados, filasReferencia, filasMatching, columnasReferencia, columnasMatching, indiceActual, contadorMatches, contadorNoMatches]);
 
-  // Scroll automático al item actual en la lista
   useEffect(() => {
     if (listaMatchesRef.current && filasReferencia.length > 0) {
-      const itemHeight = 60; // Altura aproximada de cada item (reducida)
+      const itemHeight = 60;
       const scrollPosition = indiceActual * itemHeight;
       const containerHeight = listaMatchesRef.current.clientHeight;
       const targetScroll = scrollPosition - containerHeight / 2 + itemHeight / 2;
@@ -872,7 +759,6 @@ export default function App() {
     }
   }, [indiceActual, filasReferencia.length]);
 
-  // Limpiar comentario cuando cambia el índice actual
   useEffect(() => {
     setComentarioNoMatch("");
   }, [indiceActual]);
@@ -913,8 +799,7 @@ export default function App() {
   }
 
   return (
-    <div style={{...styles.container, padding: "12px", maxHeight: "100vh", overflow: "hidden"}}>
-      {/* Header compacto */}
+          <div style={{...styles.container, padding: "12px", maxHeight: "100vh", overflow: "hidden"}}>
       <div style={{
         display: "flex", 
         justifyContent: "space-between", 
@@ -929,7 +814,6 @@ export default function App() {
           🎯 Matching de Productos
         </h1>
         
-        {/* Botones de sesión */}
         <div style={{ display: "flex", gap: "8px" }}>
           <button
             onClick={handleLogout}
@@ -966,7 +850,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Bloque: Cargar Excels - Compacto */}
       {(!filasReferencia.length || !filasMatching.length) && (
         <div style={{
           ...styles.card, 
@@ -993,10 +876,8 @@ export default function App() {
 
       {filasReferencia.length > 0 && filasMatching.length > 0 && (
         <>
-          {/* Layout principal: 2 columnas */}
           <div style={{display: "grid", gridTemplateColumns: "320px 1fr", gap: "12px", height: "calc(100vh - 100px)"}}>
             
-            {/* PANEL IZQUIERDO: Lista de matches */}
             <div style={{
               backgroundColor: "white",
               borderRadius: "8px",
@@ -1024,7 +905,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Botón de descarga */}
               <button
                 onClick={exportarExcelMatcheado}
                 disabled={contadorMatches + contadorNoMatches === 0}
@@ -1054,7 +934,6 @@ export default function App() {
                 💾 Descargar ({contadorMatches + contadorNoMatches})
               </button>
 
-              {/* Lista scrolleable de matches */}
               <div 
                 ref={listaMatchesRef}
                 style={{
@@ -1115,10 +994,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* PANEL DERECHO: Producto actual y opciones */}
             <div style={{display: "flex", flexDirection: "column", gap: "12px", overflow: "auto"}}>
               
-              {/* Producto actual */}
               <div style={{
                 backgroundColor: "white",
                 borderRadius: "8px",
@@ -1165,7 +1042,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Opciones de matching */}
               <div style={{
                 backgroundColor: "white",
                 borderRadius: "8px",
@@ -1231,7 +1107,6 @@ export default function App() {
                     />
                   ))}
                   
-                  {/* Opción NO MATCH */}
                   <div style={{
                     border: "2px solid #dc3545",
                     borderRadius: "6px",
@@ -1276,7 +1151,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Opción NO MATCH con Comentario */}
                   <div style={{
                     border: "2px solid #f97316",
                     borderRadius: "6px",
@@ -1360,7 +1234,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Ponderaciones - Colapsable */}
               {ponderacionesVisible && (
                 <div style={{
                   backgroundColor: "white",
