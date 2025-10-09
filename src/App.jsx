@@ -270,6 +270,7 @@ export default function App() {
   const [ponderacionesVisible, setPonderacionesVisible] = useState(false);
   const [comentarioNoMatch, setComentarioNoMatch] = useState("");
   const [mostrar10Productos, setMostrar10Productos] = useState(false);
+  const [seleccionMultiple, setSeleccionMultiple] = useState(new Set());
 
   /** Cargar Excel de referencia */
   function manejarFicheroReferencia(e) {
@@ -458,6 +459,59 @@ export default function App() {
     
     setMatchesSeleccionados(nuevosMatches);
     setComentarioNoMatch("");
+    setSeleccionMultiple(new Set());
+    
+    if (indiceActual < filasReferencia.length - 1) {
+      setTimeout(() => {
+        setIndiceActual(prev => prev + 1);
+      }, 300);
+    }
+  }
+
+  function toggleSeleccionMultiple(indexProducto) {
+    const nuevaSeleccion = new Set(seleccionMultiple);
+    if (nuevaSeleccion.has(indexProducto)) {
+      nuevaSeleccion.delete(indexProducto);
+    } else {
+      nuevaSeleccion.add(indexProducto);
+    }
+    setSeleccionMultiple(nuevaSeleccion);
+  }
+
+  function matchearVariosProductos() {
+    if (seleccionMultiple.size === 0) return;
+    
+    const top5 = calcularTop5ParaActual();
+    const productosSeleccionados = Array.from(seleccionMultiple)
+      .sort((a, b) => a - b)
+      .map(idx => top5[idx])
+      .filter(Boolean);
+    
+    if (productosSeleccionados.length === 0) return;
+    
+    const codiprods = productosSeleccionados
+      .map(match => match.producto[columnasMatching.CODIPROD])
+      .join(", ");
+    
+    const nuevosMatches = new Map(matchesSeleccionados);
+    const matchAnterior = matchesSeleccionados.get(indiceActual);
+    
+    nuevosMatches.set(indiceActual, {
+      codiprodpx: codiprods,
+      esNoMatch: false,
+      esMultiple: true
+    });
+    
+    if (!matchAnterior) {
+      setContadorMatches(prev => prev + 1);
+    } else if (matchAnterior.esNoMatch) {
+      setContadorMatches(prev => prev + 1);
+      setContadorNoMatches(prev => prev - 1);
+    }
+    
+    setMatchesSeleccionados(nuevosMatches);
+    setComentarioNoMatch("");
+    setSeleccionMultiple(new Set());
     
     if (indiceActual < filasReferencia.length - 1) {
       setTimeout(() => {
@@ -637,6 +691,7 @@ export default function App() {
 
   useEffect(() => {
     setComentarioNoMatch("");
+    setSeleccionMultiple(new Set());
   }, [indiceActual]);
 
   // Atajos de teclado para selección rápida
@@ -899,10 +954,13 @@ export default function App() {
                       {isProcessed && (
                         <div style={{
                           fontSize: "10px",
-                          color: match.esNoMatch ? (match.tieneComentario ? "#f97316" : "#dc2626") : "#059669",
+                          color: match.esNoMatch ? (match.tieneComentario ? "#f97316" : "#dc2626") : (match.esMultiple ? "#3b82f6" : "#059669"),
                           fontWeight: "600"
                         }}>
-                          {match.esNoMatch ? (match.tieneComentario ? `💬 "${match.codiprodpx.substring(0, 25)}..."` : "❌ NO MATCH") : `✅ ${match.codiprodpx}`}
+                          {match.esNoMatch 
+                            ? (match.tieneComentario ? `💬 "${match.codiprodpx.substring(0, 25)}..."` : "❌ NO MATCH") 
+                            : (match.esMultiple ? `✅📋 ${match.codiprodpx.substring(0, 30)}...` : `✅ ${match.codiprodpx}`)
+                          }
                         </div>
                       )}
                     </div>
@@ -978,6 +1036,33 @@ export default function App() {
                   </div>
                   <div style={{display: "flex", gap: "6px"}}>
                     <button
+                      onClick={matchearVariosProductos}
+                      disabled={seleccionMultiple.size === 0}
+                      style={{
+                        backgroundColor: seleccionMultiple.size > 0 ? "#10b981" : "#e2e8f0",
+                        color: seleccionMultiple.size > 0 ? "white" : "#94a3b8",
+                        border: "none",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        cursor: seleccionMultiple.size > 0 ? "pointer" : "not-allowed",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseOver={(e) => {
+                        if (seleccionMultiple.size > 0) {
+                          e.target.style.opacity = "0.8";
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (seleccionMultiple.size > 0) {
+                          e.target.style.opacity = "1";
+                        }
+                      }}
+                    >
+                      ✅ Match Varios {seleccionMultiple.size > 0 && `(${seleccionMultiple.size})`}
+                    </button>
+                    <button
                       onClick={() => setMostrar10Productos(!mostrar10Productos)}
                       style={{
                         backgroundColor: mostrar10Productos ? "#3b82f6" : "#64748b",
@@ -1026,6 +1111,8 @@ export default function App() {
                       onSelect={() => seleccionarMatch(match.producto)}
                       isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
                       numeroAtajo={idx < 9 ? idx + 1 : null}
+                      onCheckboxChange={() => toggleSeleccionMultiple(idx)}
+                      isChecked={seleccionMultiple.has(idx)}
                     />
                   ))}
                   

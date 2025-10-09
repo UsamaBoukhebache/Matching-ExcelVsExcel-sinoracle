@@ -1,4 +1,11 @@
-export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo }) {
+export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo, onCheckboxChange, isChecked }) {
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+    if (onCheckboxChange) {
+      onCheckboxChange();
+    }
+  };
+
   return (
     <div 
       onClick={onSelect}
@@ -24,29 +31,54 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
         }
       }}
     >
+      {/* Checkbox para selección múltiple */}
+      {onCheckboxChange && (
+        <div style={{
+          position: "absolute",
+          top: "8px",
+          left: "8px",
+          zIndex: 10
+        }}>
+          <input
+            type="checkbox"
+            checked={isChecked || false}
+            onChange={handleCheckboxClick}
+            onClick={handleCheckboxClick}
+            style={{
+              width: "16px",
+              height: "16px",
+              cursor: "pointer",
+              accentColor: "#3b82f6"
+            }}
+          />
+        </div>
+      )}
+
       {/* Badge de número de atajo */}
-      <div style={{
-        position: "absolute",
-        top: "8px",
-        left: "8px",
-        backgroundColor: isSelected ? "#22c55e" : "#6366f1",
-        color: "white",
-        padding: "1px 5px",
-        borderRadius: "50%",
-        fontSize: "10px",
-        fontWeight: "bold",
-        minWidth: "18px",
-        height: "18px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center"
-      }}>
-        {numeroAtajo}
-      </div>
+      {numeroAtajo && (
+        <div style={{
+          position: "absolute",
+          top: "8px",
+          left: onCheckboxChange ? "32px" : "8px",
+          backgroundColor: isSelected ? "#22c55e" : "#6366f1",
+          color: "white",
+          padding: "1px 5px",
+          borderRadius: "50%",
+          fontSize: "10px",
+          fontWeight: "bold",
+          minWidth: "18px",
+          height: "18px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center"
+        }}>
+          {numeroAtajo}
+        </div>
+      )}
 
       {/* Contenido principal con puntuación integrada */}
-      <div style={{display: "flex", paddingLeft: "30px", gap: "8px", alignItems: "flex-start"}}>
+      <div style={{display: "flex", paddingLeft: onCheckboxChange ? "56px" : "30px", gap: "8px", alignItems: "flex-start"}}>
         {/* Información del producto */}
         <div style={{flex: 1, minWidth: 0}}>
           <div style={{fontSize: "11px", fontWeight: "bold", color: "#1e293b", marginBottom: "3px", lineHeight: "1.2"}}>
