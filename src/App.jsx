@@ -269,6 +269,7 @@ export default function App() {
   });
   const [ponderacionesVisible, setPonderacionesVisible] = useState(false);
   const [comentarioNoMatch, setComentarioNoMatch] = useState("");
+  const [mostrar10Productos, setMostrar10Productos] = useState(false);
 
   /** Cargar Excel de referencia */
   function manejarFicheroReferencia(e) {
@@ -415,7 +416,7 @@ export default function App() {
     return puntuaciones;
   }
 
-  /** Calcula Top 5 para el producto actual */
+  /** Calcula Top candidatos para el producto actual */
   function calcularTop5ParaActual() {
     if (!filasReferencia.length || !filasMatching.length || !columnasReferencia || !columnasMatching) return [];
     
@@ -435,7 +436,8 @@ export default function App() {
     
     candidatos.sort((a, b) => b.total - a.total);
     
-    return candidatos.slice(0, 5);
+    const limite = mostrar10Productos ? 10 : 5;
+    return candidatos.slice(0, limite);
   }
 
   function seleccionarMatch(productoMatch) {
@@ -648,8 +650,9 @@ export default function App() {
       const top5 = calcularTop5ParaActual();
       const key = e.key;
       
-      // Números 1-5 para seleccionar opciones del top 5
-      if (key >= '1' && key <= '5') {
+      // Números 1-5 (o 1-9 si mostrar10Productos está activo) para seleccionar opciones
+      const maxKey = mostrar10Productos ? '9' : '5';
+      if (key >= '1' && key <= maxKey) {
         const index = parseInt(key) - 1;
         if (top5[index]) {
           seleccionarMatch(top5[index].producto);
@@ -675,7 +678,7 @@ export default function App() {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [filasReferencia, filasMatching, indiceActual, columnasReferencia, columnasMatching]);
+  }, [filasReferencia, filasMatching, indiceActual, columnasReferencia, columnasMatching, mostrar10Productos]);
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');
@@ -970,24 +973,48 @@ export default function App() {
                       🔍 Coincidencias
                     </h3>
                     <div style={{fontSize: "9px", color: "#64748b", fontStyle: "italic"}}>
-                      💡 Atajos: 1-5 = Seleccionar | 0 = No Match | ←→ = Navegar
+                      💡 Atajos: {mostrar10Productos ? "1-9" : "1-5"} = Seleccionar | 0 = No Match | ←→ = Navegar
                     </div>
                   </div>
-                  <button
-                    onClick={() => setPonderacionesVisible(!ponderacionesVisible)}
-                    style={{
-                      backgroundColor: "#94a3b8",
-                      color: "white",
-                      border: "none",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "11px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    ⚖️ Pesos
-                  </button>
+                  <div style={{display: "flex", gap: "6px"}}>
+                    <button
+                      onClick={() => setMostrar10Productos(!mostrar10Productos)}
+                      style={{
+                        backgroundColor: mostrar10Productos ? "#3b82f6" : "#64748b",
+                        color: "white",
+                        border: "none",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.opacity = "0.8";
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.opacity = "1";
+                      }}
+                    >
+                      {mostrar10Productos ? "📋 Top 10" : "📋 Ver 10"}
+                    </button>
+                    <button
+                      onClick={() => setPonderacionesVisible(!ponderacionesVisible)}
+                      style={{
+                        backgroundColor: "#94a3b8",
+                        color: "white",
+                        border: "none",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      ⚖️ Pesos
+                    </button>
+                  </div>
                 </div>
 
                 <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
@@ -998,7 +1025,7 @@ export default function App() {
                       columnasMatching={columnasMatching}
                       onSelect={() => seleccionarMatch(match.producto)}
                       isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
-                      numeroAtajo={idx + 1}
+                      numeroAtajo={idx < 9 ? idx + 1 : null}
                     />
                   ))}
                   
