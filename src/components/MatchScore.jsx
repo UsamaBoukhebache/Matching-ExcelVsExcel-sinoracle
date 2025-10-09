@@ -91,6 +91,11 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
               <b> Cantidad:</b> {match.producto[columnasMatching.CANTIDAD]} {match.producto[columnasMatching.MEDIDA]} | 
               <b> Formato:</b> {match.producto[columnasMatching.FORMATO] || "—"}
             </div>
+            {match.producto[columnasMatching.PMEDIO] && (
+              <div style={{marginTop: "2px"}}>
+                <b>💰 Precio:</b> <span style={{color: "#059669", fontWeight: "bold"}}>{(match.producto[columnasMatching.PMEDIO] / 100).toFixed(2)}€</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -141,6 +146,9 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
             )}
             {match.unidades > 0 && (
               <span style={{color: "#059669"}}>🔢 Unid. <b>+{match.unidades.toFixed(0)}</b></span>
+            )}
+            {match.precio > 0 && (
+              <span style={{color: "#059669"}}>💰 Precio <b>+{match.precio.toFixed(1)}</b></span>
             )}
             {match.descripcion > 0 && (
               <span style={{color: "#059669"}}>📝 Desc. <b>+{match.descripcion.toFixed(1)}</b></span>

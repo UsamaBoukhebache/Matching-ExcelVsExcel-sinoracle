@@ -15,6 +15,11 @@ export function ProductCard({ title, product, columns }) {
           <b>Cantidad:</b> {product[columns.CANTIDAD]} {product[columns.MEDIDA]} |{" "}
           <b>Formato:</b> {product[columns.FORMATO]}
         </p>
+        {product[columns.PMEDIO] && (
+          <p style={{margin: "2px 0"}}>
+            <b>💰 Precio:</b> <span style={{color: "#059669", fontWeight: "bold"}}>{(product[columns.PMEDIO] / 100).toFixed(2)}€</span>
+          </p>
+        )}
       </div>
     </div>
   );

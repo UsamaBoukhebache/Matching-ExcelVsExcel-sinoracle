@@ -204,6 +204,52 @@ function puntuacionAECOC(aecocA, aecocB, pesoBase) {
   return pesoBase * porcentaje;
 }
 
+/** Puntuación basada en similitud de precio */
+function puntuacionPrecio(precioRef, precioMatch, pesoBase) {
+  // Normalizar precios a números
+  const pRef = normalizarNumero(precioRef);
+  const pMatch = normalizarNumero(precioMatch);
+  
+  // Si alguno no existe, no puntuar
+  if (pRef === null || pMatch === null || pRef === 0) return 0;
+  
+  // Calcular diferencia absoluta
+  const diferencia = Math.abs(pRef - pMatch);
+  
+  // Calcular diferencia porcentual respecto al precio de referencia
+  const diferenciaPorcentual = diferencia / pRef;
+  
+  // Sistema de puntuación decreciente según la diferencia
+  // 0% diferencia = 100% puntos
+  // 10% diferencia = 90% puntos
+  // 20% diferencia = 80% puntos
+  // 50% diferencia = 50% puntos
+  // 100% diferencia o más = 0% puntos
+  
+  let multiplicador = 0;
+  if (diferenciaPorcentual <= 0.05) {
+    // Diferencia <= 5%: puntuación completa
+    multiplicador = 1;
+  } else if (diferenciaPorcentual <= 0.10) {
+    // Diferencia 5-10%: 95-90%
+    multiplicador = 1 - (diferenciaPorcentual - 0.05) * 2;
+  } else if (diferenciaPorcentual <= 0.20) {
+    // Diferencia 10-20%: 90-80%
+    multiplicador = 0.9 - (diferenciaPorcentual - 0.10) * 1;
+  } else if (diferenciaPorcentual <= 0.50) {
+    // Diferencia 20-50%: 80-50%
+    multiplicador = 0.8 - (diferenciaPorcentual - 0.20) * 1;
+  } else if (diferenciaPorcentual <= 1.0) {
+    // Diferencia 50-100%: 50-0%
+    multiplicador = 0.5 - (diferenciaPorcentual - 0.50) * 1;
+  } else {
+    // Diferencia > 100%: 0%
+    multiplicador = 0;
+  }
+  
+  return pesoBase * Math.max(0, multiplicador);
+}
+
 /** Detecta columnas */
 function adivinarColumnas(cabecera) {
   const norm = h => h.toLowerCase();
@@ -226,6 +272,7 @@ function adivinarColumnas(cabecera) {
     MARCA: pick(["marca"], "MARCA"),
     UNIDADES: pick(["unidades"], "UNIDADES"),
     SABOR: pick(["sabor"], "SABOR"),
+    PMEDIO: pick(["pmedio"], "PMEDIO"),
     EQUIVALE: pick(["equivale"], "EQUIVALE"),
     FACTOR: pick(["factor"], "FACTOR"),
     CODIPRODPX: pick(["codiprodpx"], "CODIPRODPX"),
@@ -265,6 +312,7 @@ export default function App() {
     formato: 20, 
     sabor: 10,
     unidades: 20,
+    precio: 50,
     descripcionJaccard: 100,
   });
   const [ponderacionesVisible, setPonderacionesVisible] = useState(false);
@@ -330,6 +378,7 @@ export default function App() {
       formato: 0,
       sabor: 0,
       unidades: 0,
+      precio: 0,
       descripcion: 0,
       total: 0
     };
@@ -404,6 +453,11 @@ export default function App() {
     if (uniRef !== null && uniMatch !== null && uniRef === uniMatch) {
       puntuaciones.unidades = pesos.unidades;
     }
+
+    // PRECIO - Puntuación basada en proximidad
+    const precioRefOriginal = productoRef[columnasReferencia.PMEDIO];
+    const precioMatchOriginal = productoMatch[columnasMatching.PMEDIO];
+    puntuaciones.precio = puntuacionPrecio(precioRefOriginal, precioMatchOriginal, pesos.precio);
 
     const descRefOriginal = productoRef[columnasReferencia.DESCRIPCION];
     const descMatchOriginal = productoMatch[columnasMatching.DESCRIPCION];
