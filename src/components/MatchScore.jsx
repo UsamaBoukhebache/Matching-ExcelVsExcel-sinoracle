@@ -1,4 +1,4 @@
-export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo, onCheckboxChange, isChecked }) {
+export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo, onCheckboxChange, isChecked, haySeleccionMultiple }) {
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
     if (onCheckboxChange) {
@@ -6,49 +6,79 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
     }
   };
 
+  const handleCardClick = () => {
+    // Si hay checkboxes marcados, no permitir selección directa
+    if (haySeleccionMultiple && haySeleccionMultiple > 0) {
+      return;
+    }
+    onSelect();
+  };
+
   return (
     <div 
-      onClick={onSelect}
+      onClick={handleCardClick}
       style={{
         padding: "6px 8px",
         backgroundColor: isSelected ? "#f0fdf4" : "#fff",
         borderRadius: "6px",
         border: isSelected ? "2px solid #22c55e" : "2px solid #e2e8f0",
-        cursor: "pointer",
+        cursor: (haySeleccionMultiple && haySeleccionMultiple > 0) ? "default" : "pointer",
         transition: "all 0.2s ease",
         position: "relative"
       }}
       onMouseOver={(e) => {
-        if (!isSelected) {
+        if (!isSelected && !(haySeleccionMultiple && haySeleccionMultiple > 0)) {
           e.currentTarget.style.backgroundColor = "#f8fafc";
           e.currentTarget.style.borderColor = "#3b82f6";
         }
       }}
       onMouseOut={(e) => {
-        if (!isSelected) {
+        if (!isSelected && !(haySeleccionMultiple && haySeleccionMultiple > 0)) {
           e.currentTarget.style.backgroundColor = "#fff";
           e.currentTarget.style.borderColor = "#e2e8f0";
         }
       }}
     >
-      {/* Checkbox para selección múltiple */}
+      {/* Zona de checkbox expandida - toda la franja izquierda */}
       {onCheckboxChange && (
-        <div style={{
-          position: "absolute",
-          top: "8px",
-          left: "8px",
-          zIndex: 10
-        }}>
+        <div 
+          onClick={handleCheckboxClick}
+          style={{
+            position: "absolute",
+            top: "0",
+            left: "0",
+            bottom: "0",
+            width: numeroAtajo ? "56px" : "32px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            zIndex: 10,
+            backgroundColor: isChecked ? "rgba(59, 130, 246, 0.1)" : "transparent",
+            borderRight: "1px solid #e2e8f0",
+            transition: "all 0.2s ease"
+          }}
+          onMouseOver={(e) => {
+            if (!isChecked) {
+              e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.05)";
+            }
+          }}
+          onMouseOut={(e) => {
+            if (!isChecked) {
+              e.currentTarget.style.backgroundColor = "transparent";
+            }
+          }}
+        >
           <input
             type="checkbox"
             checked={isChecked || false}
-            onChange={handleCheckboxClick}
-            onClick={handleCheckboxClick}
+            onChange={() => {}}
             style={{
-              width: "16px",
-              height: "16px",
+              width: "18px",
+              height: "18px",
               cursor: "pointer",
-              accentColor: "#3b82f6"
+              accentColor: "#3b82f6",
+              pointerEvents: "none"
             }}
           />
         </div>
@@ -59,7 +89,7 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
         <div style={{
           position: "absolute",
           top: "8px",
-          left: onCheckboxChange ? "32px" : "8px",
+          left: onCheckboxChange ? "60px" : "8px",
           backgroundColor: isSelected ? "#22c55e" : "#6366f1",
           color: "white",
           padding: "1px 5px",
@@ -71,14 +101,15 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          textAlign: "center"
+          textAlign: "center",
+          zIndex: 5
         }}>
           {numeroAtajo}
         </div>
       )}
 
       {/* Contenido principal con puntuación integrada */}
-      <div style={{display: "flex", paddingLeft: onCheckboxChange ? "56px" : "30px", gap: "8px", alignItems: "flex-start"}}>
+      <div style={{display: "flex", paddingLeft: onCheckboxChange ? "84px" : "30px", gap: "8px", alignItems: "flex-start"}}>
         {/* Información del producto */}
         <div style={{flex: 1, minWidth: 0}}>
           <div style={{fontSize: "11px", fontWeight: "bold", color: "#1e293b", marginBottom: "3px", lineHeight: "1.2"}}>

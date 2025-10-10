@@ -1167,6 +1167,7 @@ export default function App() {
                       numeroAtajo={idx < 9 ? idx + 1 : null}
                       onCheckboxChange={() => toggleSeleccionMultiple(idx)}
                       isChecked={seleccionMultiple.has(idx)}
+                      haySeleccionMultiple={seleccionMultiple.size}
                     />
                   ))}
                   
