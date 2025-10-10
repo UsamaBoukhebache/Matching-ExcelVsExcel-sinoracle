@@ -126,37 +126,37 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
             columnGap: "6px"
           }}>
             {match.codiprod > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🎯 <b>+{match.codiprod.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🎯 (CODIPROD) <b>+{match.codiprod.toFixed(0)}</b></span>
             )}
             {match.ean > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🏷️ <b>+{match.ean.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🏷️ (EAN) <b>+{match.ean.toFixed(0)}</b></span>
             )}
             {match.aecoc > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🔢 <b>+{match.aecoc.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🔢 (AECOC) <b>+{match.aecoc.toFixed(0)}</b></span>
             )}
             {match.marca > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>™️ <b>+{match.marca.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>™️ (Marca) <b>+{match.marca.toFixed(0)}</b></span>
             )}
             {match.cantidad > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>📏 <b>+{match.cantidad.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>📏 (Cantidad) <b>+{match.cantidad.toFixed(0)}</b></span>
             )}
             {match.medida > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>📐 <b>+{match.medida.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>📐 (Medida) <b>+{match.medida.toFixed(0)}</b></span>
             )}
             {match.formato > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>📦 <b>+{match.formato.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>📦 (Formato) <b>+{match.formato.toFixed(0)}</b></span>
             )}
             {match.sabor > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🍋 <b>+{match.sabor.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🍋 (Sabor) <b>+{match.sabor.toFixed(0)}</b></span>
             )}
             {match.unidades > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🔢 <b>+{match.unidades.toFixed(0)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>🔢 (Unidades) <b>+{match.unidades.toFixed(0)}</b></span>
             )}
             {match.precio > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>💰 <b>+{match.precio.toFixed(1)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>💰 (Precio) <b>+{match.precio.toFixed(1)}</b></span>
             )}
             {match.descripcion > 0 && (
-              <span style={{color: "#059669", whiteSpace: "nowrap"}}>📝 <b>+{match.descripcion.toFixed(1)}</b></span>
+              <span style={{color: "#059669", whiteSpace: "nowrap"}}>📝 (Descripción) <b>+{match.descripcion.toFixed(1)}</b></span>
             )}
           </div>
         </div>
