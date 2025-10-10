@@ -7,6 +7,7 @@ import { ProductCard } from "./components/ProductCard";
 import { WeightAdjuster } from "./components/WeightAdjuster";
 import { MatchScore } from "./components/MatchScore";
 import Login from "./components/Login";
+import sessionService from "./services/sessionService";
 
 /** Normaliza EAN */
 function normalizarEAN(raw) {
@@ -290,6 +291,7 @@ export default function App() {
   const inputFicheroReferencia = useRef(null);
   const inputFicheroMatching = useRef(null);
   const listaMatchesRef = useRef(null);
+  const archivoSugerenciasPendiente = useRef(null); // Para subir sugerencias después de crear sesión
   
   // Estado principal
   const [filasReferencia, setFilasReferencia] = useState([]);
@@ -320,13 +322,18 @@ export default function App() {
   const [mostrar10Productos, setMostrar10Productos] = useState(false);
   const [seleccionMultiple, setSeleccionMultiple] = useState(new Set());
 
+  // Estados para persistencia en BD
+  const [sesionActiva, setSesionActiva] = useState(null); // ID de sesión activa
+  const [sesionesDisponibles, setSesionesDisponibles] = useState([]); // Lista de sesiones del usuario
+  const [mostrarSelectorSesiones, setMostrarSelectorSesiones] = useState(false);
+
   /** Cargar Excel de referencia */
   function manejarFicheroReferencia(e) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const data = new Uint8Array(ev.target.result);
       const wb = XLSX.read(data, { type: "array" });
       const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -341,6 +348,12 @@ export default function App() {
       setMatchesSeleccionados(new Map());
       setContadorMatches(0);
       setContadorNoMatches(0);
+
+      // Crear sesión en BD si no existe
+      const userSession = localStorage.getItem('userSession');
+      if (!sesionActiva && userSession) {
+        await crearNuevaSesion(json, colDetectadas, 'referencia', file.name);
+      }
     };
     reader.readAsArrayBuffer(file);
   }
@@ -351,7 +364,7 @@ export default function App() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const data = new Uint8Array(ev.target.result);
       const wb = XLSX.read(data, { type: "array" });
       const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -362,6 +375,22 @@ export default function App() {
       const colDetectadas = adivinarColumnas(cabecera);
       setColumnasMatching(colDetectadas);
       setFilasMatching(json);
+
+      // Subir archivo a BD
+      const userSession = localStorage.getItem('userSession');
+      if (sesionActiva && userSession) {
+        // Ya hay sesión activa, subir directamente
+        console.log('📤 Subiendo archivo de sugerencias a sesión:', sesionActiva);
+        await subirArchivoABD('sugerencias', file.name, json, colDetectadas);
+      } else if (userSession) {
+        // No hay sesión activa aún, guardar para subir después
+        console.log('💾 Guardando archivo de sugerencias para subir cuando se cree la sesión');
+        archivoSugerenciasPendiente.current = {
+          nombreArchivo: file.name,
+          datos: json,
+          columnas: colDetectadas
+        };
+      }
     };
     reader.readAsArrayBuffer(file);
   }
@@ -495,14 +524,16 @@ export default function App() {
     return candidatos.slice(0, limite);
   }
 
-  function seleccionarMatch(productoMatch) {
+  async function seleccionarMatch(productoMatch) {
     const nuevosMatches = new Map(matchesSeleccionados);
     const matchAnterior = matchesSeleccionados.get(indiceActual);
     
-    nuevosMatches.set(indiceActual, {
+    const match = {
       codiprodpx: productoMatch[columnasMatching.CODIPROD],
       esNoMatch: false
-    });
+    };
+    
+    nuevosMatches.set(indiceActual, match);
     
     if (!matchAnterior) {
       setContadorMatches(prev => prev + 1);
@@ -512,6 +543,16 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    
+    // Guardar en BD
+    await guardarMatchEnBD(indiceActual, {
+      codiprodSugerido: match.codiprodpx,
+      puntuacionTotal: null,
+      detalles: null,
+      esMultiple: false,
+      esNoMatch: false
+    });
+    
     setComentarioNoMatch("");
     setSeleccionMultiple(new Set());
     
@@ -532,7 +573,7 @@ export default function App() {
     setSeleccionMultiple(nuevaSeleccion);
   }
 
-  function matchearVariosProductos() {
+  async function matchearVariosProductos() {
     if (seleccionMultiple.size === 0) return;
     
     const top5 = calcularTop5ParaActual();
@@ -550,11 +591,13 @@ export default function App() {
     const nuevosMatches = new Map(matchesSeleccionados);
     const matchAnterior = matchesSeleccionados.get(indiceActual);
     
-    nuevosMatches.set(indiceActual, {
+    const match = {
       codiprodpx: codiprods,
       esNoMatch: false,
       esMultiple: true
-    });
+    };
+    
+    nuevosMatches.set(indiceActual, match);
     
     if (!matchAnterior) {
       setContadorMatches(prev => prev + 1);
@@ -564,6 +607,16 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    
+    // Guardar en BD
+    await guardarMatchEnBD(indiceActual, {
+      codiprodSugerido: match.codiprodpx,
+      puntuacionTotal: null,
+      detalles: null,
+      esMultiple: true,
+      esNoMatch: false
+    });
+    
     setComentarioNoMatch("");
     setSeleccionMultiple(new Set());
     
@@ -574,14 +627,16 @@ export default function App() {
     }
   }
 
-  function seleccionarNoMatch() {
+  async function seleccionarNoMatch() {
     const nuevosMatches = new Map(matchesSeleccionados);
     const matchAnterior = matchesSeleccionados.get(indiceActual);
     
-    nuevosMatches.set(indiceActual, {
+    const match = {
       codiprodpx: "NO MATCH",
       esNoMatch: true
-    });
+    };
+    
+    nuevosMatches.set(indiceActual, match);
     
     if (!matchAnterior) {
       setContadorNoMatches(prev => prev + 1);
@@ -591,6 +646,16 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    
+    // Guardar en BD
+    await guardarMatchEnBD(indiceActual, {
+      codiprodSugerido: "NO MATCH",
+      puntuacionTotal: null,
+      detalles: null,
+      esMultiple: false,
+      esNoMatch: true
+    });
+    
     setComentarioNoMatch("");
     
     if (indiceActual < filasReferencia.length - 1) {
@@ -600,17 +665,19 @@ export default function App() {
     }
   }
 
-  function seleccionarNoMatchConComentario() {
+  async function seleccionarNoMatchConComentario() {
     if (!comentarioNoMatch.trim()) return;
     
     const nuevosMatches = new Map(matchesSeleccionados);
     const matchAnterior = matchesSeleccionados.get(indiceActual);
     
-    nuevosMatches.set(indiceActual, {
+    const match = {
       codiprodpx: comentarioNoMatch.trim(),
       esNoMatch: true,
       tieneComentario: true
-    });
+    };
+    
+    nuevosMatches.set(indiceActual, match);
     
     if (!matchAnterior) {
       setContadorNoMatches(prev => prev + 1);
@@ -620,6 +687,16 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    
+    // Guardar en BD
+    await guardarMatchEnBD(indiceActual, {
+      codiprodSugerido: match.codiprodpx,
+      puntuacionTotal: null,
+      detalles: null,
+      esMultiple: false,
+      esNoMatch: true
+    });
+    
     setComentarioNoMatch("");
     
     if (indiceActual < filasReferencia.length - 1) {
@@ -635,7 +712,19 @@ export default function App() {
     const filasActualizadas = filasReferencia.map((fila, idx) => {
       const match = matchesSeleccionados.get(idx);
       const filaLimpia = { ...fila };
-      filaLimpia[columnasReferencia.CODIPRODPX] = match?.codiprodpx ?? "";
+      
+      // Si hay match
+      if (match) {
+        // Si es NO MATCH con comentario, agregar "NO MATCH: " antes del comentario
+        if (match.esNoMatch && match.tieneComentario) {
+          filaLimpia[columnasReferencia.CODIPRODPX] = `NO MATCH: ${match.codiprodpx}`;
+        } else {
+          filaLimpia[columnasReferencia.CODIPRODPX] = match.codiprodpx;
+        }
+      } else {
+        filaLimpia[columnasReferencia.CODIPRODPX] = "";
+      }
+      
       return filaLimpia;
     });
 
@@ -648,6 +737,279 @@ export default function App() {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
     saveAs(blob, "productos_matcheados.xlsx");
+  }
+
+  // =====================================================
+  // FUNCIONES DE PERSISTENCIA EN BASE DE DATOS
+  // =====================================================
+
+  async function crearNuevaSesion(filasReferencia, columnasRef, tipo, nombreArchivo) {
+    try {
+      const userSession = JSON.parse(localStorage.getItem('userSession'));
+      if (!userSession) return;
+
+      const nombreSesion = `Sesión ${new Date().toLocaleString('es-ES')}`;
+      
+      const result = await sessionService.createSession(
+        userSession.id,
+        nombreSesion,
+        pesos,
+        filasReferencia.length
+      );
+
+      if (result.success) {
+        const nuevaSesionId = result.sesion_id;
+        console.log('✅ Sesión creada:', nuevaSesionId);
+        setSesionActiva(nuevaSesionId);
+        
+        // Subir archivo de referencia usando el ID directamente (no esperar a que se actualice el estado)
+        console.log('📤 Subiendo archivo de referencia a sesión:', nuevaSesionId);
+        const uploadResult = await sessionService.uploadFile(
+          nuevaSesionId,
+          'referencia',
+          nombreArchivo,
+          filasReferencia,
+          columnasRef
+        );
+        
+        if (uploadResult.success) {
+          console.log('✅ Archivo de referencia subido:', uploadResult.stats);
+        } else {
+          console.error('❌ Error subiendo archivo de referencia:', uploadResult.error);
+          alert('Error al subir el archivo de referencia: ' + uploadResult.error);
+        }
+        
+        // Recargar lista de sesiones
+        await cargarSesionesUsuario();
+      }
+    } catch (error) {
+      console.error('Error creando sesión:', error);
+      alert('Error al crear la sesión: ' + error.message);
+    }
+  }
+
+  // Subir archivo de sugerencias pendiente cuando se crea la sesión
+  useEffect(() => {
+    const subirArchivoSugerenciasPendiente = async () => {
+      if (sesionActiva && archivoSugerenciasPendiente.current) {
+        const { nombreArchivo, datos, columnas } = archivoSugerenciasPendiente.current;
+        console.log('📤 Subiendo archivo de sugerencias pendiente a sesión:', sesionActiva);
+        
+        try {
+          const result = await sessionService.uploadFile(
+            sesionActiva,
+            'sugerencias',
+            nombreArchivo,
+            datos,
+            columnas
+          );
+          
+          if (result.success) {
+            console.log('✅ Archivo de sugerencias subido:', result.stats);
+          } else {
+            console.error('❌ Error subiendo archivo de sugerencias:', result.error);
+          }
+        } catch (error) {
+          console.error('❌ Error subiendo archivo de sugerencias:', error);
+        } finally {
+          archivoSugerenciasPendiente.current = null; // Limpiar después de subir
+        }
+      }
+    };
+    
+    subirArchivoSugerenciasPendiente();
+  }, [sesionActiva]);
+
+  async function subirArchivoABD(tipoArchivo, nombreArchivo, datos, columnas) {
+    if (!sesionActiva) {
+      console.warn('⚠️ No hay sesión activa para subir archivo');
+      return;
+    }
+
+    console.log(`📤 Subiendo archivo ${tipoArchivo}:`, {
+      sesionId: sesionActiva,
+      nombreArchivo,
+      filas: datos.length,
+      columnas: columnas.length
+    });
+
+    try {
+      const result = await sessionService.uploadFile(
+        sesionActiva,
+        tipoArchivo,
+        nombreArchivo,
+        datos,
+        columnas
+      );
+
+      if (result.success) {
+        console.log(`✅ Archivo ${tipoArchivo} subido:`, result.stats);
+      } else {
+        console.error(`❌ Error subiendo ${tipoArchivo}:`, result.error);
+        alert(`Error al subir archivo ${tipoArchivo}: ${result.error}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error subiendo archivo ${tipoArchivo}:`, error);
+      alert(`Error al subir archivo ${tipoArchivo}: ${error.message}`);
+    }
+  }
+
+  async function cargarSesionesUsuario() {
+    try {
+      const userSession = JSON.parse(localStorage.getItem('userSession'));
+      if (!userSession) return;
+
+      const result = await sessionService.getSessions(userSession.id);
+      
+      if (result.success) {
+        setSesionesDisponibles(result.sesiones);
+        console.log('📋 Sesiones disponibles:', result.sesiones.length);
+      }
+    } catch (error) {
+      console.error('Error cargando sesiones:', error);
+    }
+  }
+
+  async function cargarSesionExistente(sesionId) {
+    try {
+      console.log('🔄 Cargando sesión:', sesionId);
+      
+      // Limpiar estado anterior primero
+      setFilasReferencia([]);
+      setFilasMatching([]);
+      setColumnasReferencia([]);
+      setColumnasMatching([]);
+      setIndiceActual(0);
+      setContadorMatches(0);
+      setContadorNoMatches(0);
+      setMatchesSeleccionados(new Map());
+      
+      const result = await sessionService.loadSession(sesionId);
+      console.log('📦 Resultado loadSession:', result);
+      
+      if (result.success) {
+        console.log('✅ Sesión cargada:', sesionId);
+        
+        // Establecer sesión activa
+        setSesionActiva(sesionId);
+        
+        // Cargar archivos
+        if (result.archivos?.referencia) {
+          console.log('📄 Cargando referencia:', result.archivos.referencia.datos?.length, 'filas');
+          setFilasReferencia(result.archivos.referencia.datos || []);
+          setColumnasReferencia(result.archivos.referencia.columnas || []);
+        } else {
+          console.warn('⚠️ No se encontró archivo de referencia');
+        }
+        
+        if (result.archivos?.sugerencias) {
+          console.log('📄 Cargando sugerencias:', result.archivos.sugerencias.datos?.length, 'filas');
+          setFilasMatching(result.archivos.sugerencias.datos || []);
+          setColumnasMatching(result.archivos.sugerencias.columnas || []);
+        } else {
+          console.warn('⚠️ No se encontró archivo de sugerencias');
+        }
+        
+        // Cargar progreso
+        setIndiceActual(result.sesion.indice_actual);
+        setContadorMatches(result.sesion.productos_matcheados);
+        setContadorNoMatches(result.sesion.productos_no_match);
+        console.log('📊 Progreso:', result.sesion.indice_actual, '/', result.sesion.total_productos);
+        
+        // Cargar pesos si existen
+        if (result.sesion.pesos_config) {
+          setPesos(result.sesion.pesos_config);
+        }
+        
+        // Cargar resultados
+        const matchesMap = new Map();
+        Object.entries(result.resultados || {}).forEach(([indice, match]) => {
+          matchesMap.set(Number(indice), {
+            codiprodpx: match.codiprodSugerido,
+            esNoMatch: match.esNoMatch,
+            esMultiple: match.esMultiple
+          });
+        });
+        setMatchesSeleccionados(matchesMap);
+        console.log('✅ Matches cargados:', matchesMap.size);
+        
+        // Cerrar selector
+        setMostrarSelectorSesiones(false);
+      } else {
+        console.error('❌ Error en loadSession:', result.error);
+        alert('Error al cargar la sesión: ' + (result.error || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('❌ Error cargando sesión:', error);
+      alert('Error al cargar la sesión: ' + error.message);
+    }
+  }
+
+  async function guardarMatchEnBD(indiceProducto, match) {
+    if (!sesionActiva) return;
+
+    try {
+      // Auto-save: guarda match + sync cada 5
+      await sessionService.autoSave(
+        sesionActiva,
+        indiceProducto,
+        match,
+        {
+          indiceActual: indiceProducto + 1,
+          productosMatcheados: contadorMatches + (match.esNoMatch ? 0 : 1),
+          productosNoMatch: contadorNoMatches + (match.esNoMatch ? 1 : 0)
+        }
+      );
+    } catch (error) {
+      console.error('Error guardando match:', error);
+    }
+  }
+
+  async function sincronizarProgreso() {
+    if (!sesionActiva) return;
+
+    try {
+      await sessionService.forceSync(sesionActiva, {
+        indiceActual,
+        productosMatcheados: contadorMatches,
+        productosNoMatch: contadorNoMatches,
+        estado: indiceActual >= filasReferencia.length ? 'completada' : 'en_progreso'
+      });
+      console.log('💾 Progreso sincronizado');
+    } catch (error) {
+      console.error('Error sincronizando progreso:', error);
+    }
+  }
+
+  async function eliminarSesion(sesionId, nombreSesion) {
+    if (!window.confirm(`¿Estás seguro de eliminar la sesión "${nombreSesion}"?\n\nEsto eliminará todos los archivos y matches guardados.`)) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Eliminando sesión:', sesionId);
+      await sessionService.deleteSession(sesionId);
+      
+      // Si se eliminó la sesión activa, limpiar la UI
+      if (sesionActiva === sesionId) {
+        setSesionActiva(null);
+        setFilasReferencia([]);
+        setFilasMatching([]);
+        setColumnasReferencia([]);
+        setColumnasMatching([]);
+        setIndiceActual(0);
+        setContadorMatches(0);
+        setContadorNoMatches(0);
+        setMatchesSeleccionados(new Map());
+      }
+      
+      // Recargar lista de sesiones
+      await cargarSesionesUsuario();
+      alert('Sesión eliminada correctamente');
+    } catch (error) {
+      console.error('Error eliminando sesión:', error);
+      alert('Error al eliminar la sesión: ' + error.message);
+    }
   }
 
   // Mantener sesión y progreso al recargar la página
@@ -748,6 +1110,34 @@ export default function App() {
     setSeleccionMultiple(new Set());
   }, [indiceActual]);
 
+  // Sincronizar progreso al cerrar o cambiar navegación
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sincronizarProgreso();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        sincronizarProgreso();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [sesionActiva, indiceActual, contadorMatches, contadorNoMatches]);
+
+  // Cargar sesiones al autenticarse
+  useEffect(() => {
+    if (isAuthenticated) {
+      cargarSesionesUsuario();
+    }
+  }, [isAuthenticated]);
+
   // Atajos de teclado para selección rápida
   useEffect(() => {
     if (!filasReferencia.length || !filasMatching.length) return;
@@ -842,6 +1232,56 @@ export default function App() {
         
         <div style={{ display: "flex", gap: "8px" }}>
           <button
+            onClick={() => {
+              if (sesionActiva && (filasReferencia.length > 0 || filasMatching.length > 0)) {
+                if (!window.confirm('¿Crear una nueva sesión? Se limpiará el trabajo actual.')) {
+                  return;
+                }
+              }
+              // Limpiar todo
+              setSesionActiva(null);
+              setFilasReferencia([]);
+              setFilasMatching([]);
+              setColumnasReferencia([]);
+              setColumnasMatching([]);
+              setIndiceActual(0);
+              setContadorMatches(0);
+              setContadorNoMatches(0);
+              setMatchesSeleccionados(new Map());
+              console.log('🆕 Nueva sesión iniciada');
+            }}
+            style={{
+              background: "#28a745",
+              color: "white",
+              border: "none",
+              padding: "6px 12px",
+              borderRadius: "5px",
+              fontSize: "13px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+            title="Crear nueva sesión desde cero"
+          >
+            ✨ Nueva Sesión
+          </button>
+          <button
+            onClick={() => setMostrarSelectorSesiones(!mostrarSelectorSesiones)}
+            style={{
+              background: "#17a2b8",
+              color: "white",
+              border: "none",
+              padding: "6px 12px",
+              borderRadius: "5px",
+              fontSize: "13px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+          >
+            📂 Sesiones {sesionesDisponibles.length > 0 && `(${sesionesDisponibles.length})`}
+          </button>
+          <button
             onClick={handleLogout}
             style={{
               background: "#dc3545",
@@ -875,6 +1315,154 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {/* Selector de sesiones */}
+      {mostrarSelectorSesiones && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: "12px",
+            padding: "30px",
+            maxWidth: "600px",
+            width: "90%",
+            maxHeight: "80vh",
+            overflow: "auto"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+              <h2 style={{ margin: 0 }}>📂 Mis Sesiones</h2>
+              <button
+                onClick={() => setMostrarSelectorSesiones(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer"
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {sesionesDisponibles.length === 0 ? (
+              <p style={{ textAlign: "center", color: "#666" }}>
+                No tienes sesiones guardadas. Carga un archivo para crear una nueva.
+              </p>
+            ) : (
+              <div>
+                {sesionesDisponibles.map(sesion => (
+                  <div
+                    key={sesion.id}
+                    style={{
+                      border: sesion.id === sesionActiva ? "2px solid #28a745" : "1px solid #ddd",
+                      borderRadius: "8px",
+                      padding: "15px",
+                      marginBottom: "10px",
+                      background: sesion.id === sesionActiva ? "#f0fdf4" : "white",
+                      transition: "all 0.2s",
+                      position: "relative"
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)"}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = "none"}
+                  >
+                    <div 
+                      onClick={() => cargarSesionExistente(sesion.id)}
+                      style={{ 
+                        display: "flex", 
+                        justifyContent: "space-between", 
+                        alignItems: "center",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <div>
+                        <h3 style={{ margin: "0 0 8px 0", fontSize: "16px" }}>
+                          {sesion.id === sesionActiva && "✓ "}
+                          {sesion.nombre_sesion}
+                        </h3>
+                        <p style={{ margin: "4px 0", fontSize: "14px", color: "#666" }}>
+                          📦 {sesion.productos_matcheados + sesion.productos_no_match} / {sesion.total_productos} productos
+                          {" · "}
+                          {sesion.estado === 'completada' ? '✅ Completada' : 
+                           sesion.estado === 'pausada' ? '⏸️ Pausada' : 
+                           '🔄 En progreso'}
+                        </p>
+                        <p style={{ margin: "4px 0", fontSize: "12px", color: "#999" }}>
+                          📅 {new Date(sesion.fecha_creacion).toLocaleString('es-ES')}
+                        </p>
+                      </div>
+                      <div style={{ textAlign: "right", display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
+                        <div style={{ 
+                          background: sesion.estado === 'completada' ? '#22c55e' : '#f59e0b',
+                          color: "white",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          fontWeight: "bold"
+                        }}>
+                          {Math.round((sesion.productos_matcheados + sesion.productos_no_match) / sesion.total_productos * 100)}%
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        eliminarSesion(sesion.id, sesion.nombre_sesion);
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: "10px",
+                        right: "10px",
+                        background: "#dc3545",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        padding: "6px 10px",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                        transition: "background 0.2s"
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#bb2d3b"}
+                      onMouseLeave={e => e.currentTarget.style.background = "#dc3545"}
+                      title="Eliminar sesión"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: "20px", textAlign: "center" }}>
+              <button
+                onClick={() => setMostrarSelectorSesiones(false)}
+                style={{
+                  background: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  cursor: "pointer"
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(!filasReferencia.length || !filasMatching.length) && (
         <div style={{
@@ -914,7 +1502,7 @@ export default function App() {
               overflow: "hidden"
             }}>
               <div style={{marginBottom: "12px"}}>
-                <h2 style={{margin: "0 0 8px 0", fontSize: "15px", color: "#1e293b"}}>
+                <h2 style={{margin: 0, fontSize: "15px", color: "#1e293b"}}>
                   📋 Matches
                 </h2>
                 <div style={{
@@ -1012,7 +1600,7 @@ export default function App() {
                           fontWeight: "600"
                         }}>
                           {match.esNoMatch 
-                            ? (match.tieneComentario ? `💬 "${match.codiprodpx.substring(0, 25)}..."` : "❌ NO MATCH") 
+                            ? (match.tieneComentario ? `❌ NO MATCH: ${match.codiprodpx.substring(0, 20)}...` : "❌ NO MATCH") 
                             : (match.esMultiple ? `✅📋 ${match.codiprodpx.substring(0, 30)}...` : `✅ ${match.codiprodpx}`)
                           }
                         </div>
