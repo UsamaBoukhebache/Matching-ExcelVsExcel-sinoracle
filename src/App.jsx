@@ -327,6 +327,11 @@ export default function App() {
   const [sesionesDisponibles, setSesionesDisponibles] = useState([]); // Lista de sesiones del usuario
   const [mostrarSelectorSesiones, setMostrarSelectorSesiones] = useState(false);
   const [ultimoMatchHecho, setUltimoMatchHecho] = useState(null); // Índice del último match para scroll
+  
+  // Estados para buscador manual
+  const [busquedaManual, setBusquedaManual] = useState("");
+  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const [mostrarResultadosBusqueda, setMostrarResultadosBusqueda] = useState(false);
 
   /** Cargar Excel de referencia */
   function manejarFicheroReferencia(e) {
@@ -709,6 +714,69 @@ export default function App() {
         setIndiceActual(prev => prev + 1);
       }, 300);
     }
+  }
+
+  function buscarProductosManual(termino) {
+    setBusquedaManual(termino);
+    
+    if (!termino.trim() || !filasMatching.length || !columnasMatching) {
+      setResultadosBusqueda([]);
+      setMostrarResultadosBusqueda(false);
+      return;
+    }
+
+    const terminoNormalizado = normalizarDescripcion(termino);
+    const terminosTokens = tokenizar(termino);
+    
+    // Buscar en descripción, marca, CODIPROD
+    const resultados = filasMatching
+      .map((producto, idx) => {
+        const descripcion = normalizarDescripcion(producto[columnasMatching.DESCRIPCION] || "");
+        const marca = normalizarDescripcion(producto[columnasMatching.MARCA] || "");
+        const codiprod = (producto[columnasMatching.CODIPROD] || "").toString().toLowerCase();
+        
+        // Calcular relevancia
+        let relevancia = 0;
+        
+        // Coincidencia exacta en CODIPROD
+        if (codiprod.includes(terminoNormalizado)) {
+          relevancia += 100;
+        }
+        
+        // Coincidencia en marca
+        if (marca.includes(terminoNormalizado)) {
+          relevancia += 50;
+        }
+        
+        // Coincidencia en descripción
+        if (descripcion.includes(terminoNormalizado)) {
+          relevancia += 30;
+        }
+        
+        // Similitud por tokens
+        const descripcionTokens = tokenizar(producto[columnasMatching.DESCRIPCION]);
+        const similitud = similitudMejorada(terminosTokens, descripcionTokens);
+        relevancia += similitud * 20;
+        
+        return {
+          producto,
+          indice: idx,
+          relevancia
+        };
+      })
+      .filter(r => r.relevancia > 0)
+      .sort((a, b) => b.relevancia - a.relevancia)
+      .slice(0, 20); // Máximo 20 resultados
+
+    setResultadosBusqueda(resultados);
+    setMostrarResultadosBusqueda(resultados.length > 0);
+  }
+
+  async function seleccionarProductoBuscado(producto) {
+    await seleccionarMatch(producto);
+    setBusquedaManual("");
+    setResultadosBusqueda([]);
+    setMostrarResultadosBusqueda(false);
   }
 
   function exportarExcelMatcheado() {
@@ -1673,8 +1741,8 @@ export default function App() {
                 flex: 1,
                 overflow: "auto"
               }}>
-                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px"}}>
-                  <div style={{display: "flex", flexDirection: "column", gap: "4px"}}>
+                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", gap: "10px"}}>
+                  <div style={{display: "flex", flexDirection: "column", gap: "4px", minWidth: "150px"}}>
                     <h3 style={{margin: 0, fontSize: "14px", color: "#1e293b"}}>
                       🔍 Coincidencias
                     </h3>
@@ -1682,6 +1750,78 @@ export default function App() {
                       💡 Atajos: {mostrar10Productos ? "1-9" : "1-5"} = Seleccionar | 0 = No Match | ←→ = Navegar
                     </div>
                   </div>
+                  
+                  {/* Buscador manual */}
+                  <div style={{ position: "relative", flex: 1, maxWidth: "300px" }}>
+                    <input
+                      type="text"
+                      value={busquedaManual}
+                      onChange={(e) => buscarProductosManual(e.target.value)}
+                      placeholder="🔍 Buscar en catálogo..."
+                      style={{
+                        width: "100%",
+                        padding: "6px 10px",
+                        fontSize: "11px",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "4px",
+                        outline: "none"
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = "#3b82f6";
+                        e.target.style.boxShadow = "0 0 0 2px rgba(59, 130, 246, 0.1)";
+                      }}
+                      onBlur={(e) => {
+                        setTimeout(() => {
+                          e.target.style.borderColor = "#e2e8f0";
+                          e.target.style.boxShadow = "none";
+                        }, 200);
+                      }}
+                    />
+                    {mostrarResultadosBusqueda && resultadosBusqueda.length > 0 && (
+                      <div style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        maxHeight: "300px",
+                        overflowY: "auto",
+                        backgroundColor: "white",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "6px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                        zIndex: 1000
+                      }}>
+                        {resultadosBusqueda.map((resultado) => (
+                          <div
+                            key={resultado.indice}
+                            onClick={() => seleccionarProductoBuscado(resultado.producto)}
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f1f5f9",
+                              cursor: "pointer",
+                              transition: "background 0.2s"
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f8fafc"}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "white"}
+                          >
+                            <div style={{ fontSize: "11px", fontWeight: "600", color: "#1e293b", marginBottom: "2px" }}>
+                              {resultado.producto[columnasMatching.CODIPROD]}
+                            </div>
+                            <div style={{ fontSize: "10px", color: "#64748b", marginBottom: "2px" }}>
+                              {resultado.producto[columnasMatching.DESCRIPCION]?.substring(0, 60)}...
+                            </div>
+                            {resultado.producto[columnasMatching.MARCA] && (
+                              <div style={{ fontSize: "9px", color: "#94a3b8" }}>
+                                Marca: {resultado.producto[columnasMatching.MARCA]}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div style={{display: "flex", gap: "6px"}}>
                     <button
                       onClick={matchearVariosProductos}

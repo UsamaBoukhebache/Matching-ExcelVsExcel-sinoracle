@@ -118,6 +118,10 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
           <div style={{fontSize: "9px", color: "#64748b", lineHeight: "1.3"}}>
             <div><b>CODIPROD:</b> {match.producto[columnasMatching.CODIPROD]}</div>
             <div>
+              <b>EAN:</b> {match.producto[columnasMatching.EAN] || "—"} | 
+              <b> AECOC:</b> {match.producto[columnasMatching.AECOC] || "—"}
+            </div>
+            <div>
               <b>Marca:</b> {match.producto[columnasMatching.MARCA] || "—"} | 
               <b> Cantidad:</b> {match.producto[columnasMatching.CANTIDAD]} {match.producto[columnasMatching.MEDIDA]} | 
               <b> Formato:</b> {match.producto[columnasMatching.FORMATO] || "—"}
