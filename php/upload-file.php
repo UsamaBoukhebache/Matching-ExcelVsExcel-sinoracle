@@ -31,7 +31,7 @@ try {
     $datos_json = json_encode($datos);
     $datos_size = strlen($datos_json);
     
-    // Comprimir datos con GZIP (nivel 6 = balance entre velocidad y compresión)
+    // Comprimir datos con GZIP 
     $datos_comprimidos = gzencode($datos_json, 6);
     
     // Verificar si ya existe un archivo del mismo tipo para esta sesión

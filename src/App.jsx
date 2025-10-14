@@ -326,6 +326,7 @@ export default function App() {
   const [sesionActiva, setSesionActiva] = useState(null); // ID de sesión activa
   const [sesionesDisponibles, setSesionesDisponibles] = useState([]); // Lista de sesiones del usuario
   const [mostrarSelectorSesiones, setMostrarSelectorSesiones] = useState(false);
+  const [ultimoMatchHecho, setUltimoMatchHecho] = useState(null); // Índice del último match para scroll
 
   /** Cargar Excel de referencia */
   function manejarFicheroReferencia(e) {
@@ -543,6 +544,7 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    setUltimoMatchHecho(indiceActual); // 🎯 Marcar último match para scroll
     
     // Guardar en BD
     await guardarMatchEnBD(indiceActual, {
@@ -607,6 +609,7 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    setUltimoMatchHecho(indiceActual); // 🎯 Marcar último match para scroll
     
     // Guardar en BD
     await guardarMatchEnBD(indiceActual, {
@@ -646,6 +649,7 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    setUltimoMatchHecho(indiceActual); // 🎯 Marcar último match para scroll
     
     // Guardar en BD
     await guardarMatchEnBD(indiceActual, {
@@ -687,6 +691,7 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
+    setUltimoMatchHecho(indiceActual); // 🎯 Marcar último match para scroll
     
     // Guardar en BD
     await guardarMatchEnBD(indiceActual, {
@@ -1091,10 +1096,11 @@ export default function App() {
     }
   }, [isAuthenticated, matchesSeleccionados, filasReferencia, filasMatching, columnasReferencia, columnasMatching, indiceActual, contadorMatches, contadorNoMatches]);
 
+  // Scroll automático al último match hecho (para poder corregir fácilmente)
   useEffect(() => {
-    if (listaMatchesRef.current && filasReferencia.length > 0) {
+    if (listaMatchesRef.current && filasReferencia.length > 0 && ultimoMatchHecho !== null) {
       const itemHeight = 60;
-      const scrollPosition = indiceActual * itemHeight;
+      const scrollPosition = ultimoMatchHecho * itemHeight;
       const containerHeight = listaMatchesRef.current.clientHeight;
       const targetScroll = scrollPosition - containerHeight / 2 + itemHeight / 2;
       
@@ -1103,7 +1109,7 @@ export default function App() {
         behavior: 'smooth'
       });
     }
-  }, [indiceActual, filasReferencia.length]);
+  }, [ultimoMatchHecho, filasReferencia.length]);
 
   useEffect(() => {
     setComentarioNoMatch("");
