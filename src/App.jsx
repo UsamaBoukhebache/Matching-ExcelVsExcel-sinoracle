@@ -319,7 +319,7 @@ export default function App() {
   });
   const [ponderacionesVisible, setPonderacionesVisible] = useState(false);
   const [comentarioNoMatch, setComentarioNoMatch] = useState("");
-  const [mostrar10Productos, setMostrar10Productos] = useState(false);
+  const [cantidadProductos, setCantidadProductos] = useState(5); // 5, 10, 25, 50
   const [seleccionMultiple, setSeleccionMultiple] = useState(new Set());
 
   // Estados para persistencia en BD
@@ -526,8 +526,7 @@ export default function App() {
     
     candidatos.sort((a, b) => b.total - a.total);
     
-    const limite = mostrar10Productos ? 10 : 5;
-    return candidatos.slice(0, limite);
+    return candidatos.slice(0, cantidadProductos);
   }
 
   async function seleccionarMatch(productoMatch) {
@@ -1223,8 +1222,8 @@ export default function App() {
       const top5 = calcularTop5ParaActual();
       const key = e.key;
       
-      // Números 1-5 (o 1-9 si mostrar10Productos está activo) para seleccionar opciones
-      const maxKey = mostrar10Productos ? '9' : '5';
+      // Números 1-9 para seleccionar opciones (máximo 9 con teclado)
+      const maxKey = '9';
       if (key >= '1' && key <= maxKey) {
         const index = parseInt(key) - 1;
         if (top5[index]) {
@@ -1251,7 +1250,7 @@ export default function App() {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [filasReferencia, filasMatching, indiceActual, columnasReferencia, columnasMatching, mostrar10Productos]);
+  }, [filasReferencia, filasMatching, indiceActual, columnasReferencia, columnasMatching, cantidadProductos]);
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');
@@ -1298,7 +1297,10 @@ export default function App() {
         padding: "8px 12px",
         backgroundColor: "white",
         borderRadius: "8px",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        position: "sticky",
+        top: 0,
+        zIndex: 100
       }}>
         <h1 style={{...styles.title, margin: 0, fontSize: "18px"}}>
           🎯 Matching de Productos
@@ -1354,6 +1356,25 @@ export default function App() {
             }}
           >
             📂 Sesiones {sesionesDisponibles.length > 0 && `(${sesionesDisponibles.length})`}
+          </button>
+          <button
+            onClick={sincronizarProgreso}
+            disabled={!sesionActiva}
+            style={{
+              background: sesionActiva ? "#28a745" : "#6c757d",
+              color: "white",
+              border: "none",
+              padding: "6px 12px",
+              borderRadius: "5px",
+              fontSize: "13px",
+              fontWeight: "bold",
+              cursor: sesionActiva ? "pointer" : "not-allowed",
+              transition: "all 0.2s ease",
+              opacity: sesionActiva ? 1 : 0.6
+            }}
+            title="Guardar progreso actual en la base de datos"
+          >
+            💾 Guardar
           </button>
           <button
             onClick={handleLogout}
@@ -1736,18 +1757,28 @@ export default function App() {
               <div style={{
                 backgroundColor: "white",
                 borderRadius: "8px",
-                padding: "12px",
                 boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                 flex: 1,
-                overflow: "auto"
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden"
               }}>
-                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", gap: "10px"}}>
+                <div style={{
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center", 
+                  padding: "12px",
+                  gap: "10px",
+                  backgroundColor: "white",
+                  borderBottom: "2px solid #e2e8f0",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+                }}>
                   <div style={{display: "flex", flexDirection: "column", gap: "4px", minWidth: "150px"}}>
                     <h3 style={{margin: 0, fontSize: "14px", color: "#1e293b"}}>
                       🔍 Coincidencias
                     </h3>
                     <div style={{fontSize: "9px", color: "#64748b", fontStyle: "italic"}}>
-                      💡 Atajos: {mostrar10Productos ? "1-9" : "1-5"} = Seleccionar | 0 = No Match | ←→ = Navegar
+                      💡 Atajos: {cantidadProductos === 5 ? "1-5" : cantidadProductos === 10 ? "1-9" : "1-9"} = Seleccionar | 0 = No Match | ←→ = Navegar
                     </div>
                   </div>
                   
@@ -1851,9 +1882,9 @@ export default function App() {
                       ✅ Match Varios {seleccionMultiple.size > 0 && `(${seleccionMultiple.size})`}
                     </button>
                     <button
-                      onClick={() => setMostrar10Productos(!mostrar10Productos)}
+                      onClick={() => setCantidadProductos(cantidadProductos === 5 ? 10 : cantidadProductos === 10 ? 25 : cantidadProductos === 25 ? 50 : 5)}
                       style={{
-                        backgroundColor: mostrar10Productos ? "#3b82f6" : "#64748b",
+                        backgroundColor: cantidadProductos === 5 ? "#64748b" : cantidadProductos === 10 ? "#3b82f6" : cantidadProductos === 25 ? "#8b5cf6" : "#ec4899",
                         color: "white",
                         border: "none",
                         padding: "4px 8px",
@@ -1870,7 +1901,7 @@ export default function App() {
                         e.target.style.opacity = "1";
                       }}
                     >
-                      {mostrar10Productos ? "📋 Top 10" : "📋 Ver 10"}
+                      📋 Top {cantidadProductos}
                     </button>
                     <button
                       onClick={() => setPonderacionesVisible(!ponderacionesVisible)}
@@ -1890,7 +1921,14 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
+                <div style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  padding: "12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px"
+                }}>
                   {calcularTop5ParaActual().map((match, idx) => (
                     <MatchScore
                       key={idx}
@@ -1898,10 +1936,11 @@ export default function App() {
                       columnasMatching={columnasMatching}
                       onSelect={() => seleccionarMatch(match.producto)}
                       isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
-                      numeroAtajo={idx < 9 ? idx + 1 : null}
+                      numeroAtajo={idx + 1}
                       onCheckboxChange={() => toggleSeleccionMultiple(idx)}
                       isChecked={seleccionMultiple.has(idx)}
                       haySeleccionMultiple={seleccionMultiple.size}
+                      marcaReferencia={filasReferencia[indiceActual]?.[columnasReferencia.MARCA]}
                     />
                   ))}
                   
