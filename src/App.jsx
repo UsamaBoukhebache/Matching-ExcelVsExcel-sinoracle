@@ -1092,14 +1092,18 @@ export default function App() {
     }
   }
 
-  // Mantener sesión y progreso al recargar la página
+  // Mantener solo el progreso de la sesión al recargar la página
+  // Los datos de los archivos se cargan desde la base de datos al cargar una sesión
   useEffect(() => {
+    // Limpiar datos antiguos de archivos Excel que puedan estar en localStorage
+    // Esto previene el error QuotaExceededError
+    localStorage.removeItem('filasReferencia');
+    localStorage.removeItem('filasMatching');
+    localStorage.removeItem('columnasReferencia');
+    localStorage.removeItem('columnasMatching');
+    
     const userSession = localStorage.getItem('userSession');
     const savedMatches = localStorage.getItem('matchesSeleccionados');
-    const savedReferencia = localStorage.getItem('filasReferencia');
-    const savedMatching = localStorage.getItem('filasMatching');
-    const savedColumnasReferencia = localStorage.getItem('columnasReferencia');
-    const savedColumnasMatching = localStorage.getItem('columnasMatching');
     const savedIndiceActual = localStorage.getItem('indiceActual');
     const savedContadorMatches = localStorage.getItem('contadorMatches');
     const savedContadorNoMatches = localStorage.getItem('contadorNoMatches');
@@ -1127,21 +1131,8 @@ export default function App() {
       }
     }
 
-    if (savedReferencia) {
-      setFilasReferencia(JSON.parse(savedReferencia));
-    }
-
-    if (savedMatching) {
-      setFilasMatching(JSON.parse(savedMatching));
-    }
-
-    if (savedColumnasReferencia) {
-      setColumnasReferencia(JSON.parse(savedColumnasReferencia));
-    }
-
-    if (savedColumnasMatching) {
-      setColumnasMatching(JSON.parse(savedColumnasMatching));
-    }
+    // Los datos de archivos Excel ya NO se cargan desde localStorage
+    // Se cargan desde la base de datos al cargar/crear una sesión
 
     if (savedIndiceActual) {
       setIndiceActual(Number(savedIndiceActual));
@@ -1158,18 +1149,31 @@ export default function App() {
     setIsLoading(false);
   }, []);
 
+  // Guardar solo el progreso de la sesión (NO los datos de los archivos Excel)
+  // Los datos de los archivos ya están en la base de datos
   useEffect(() => {
     if (isAuthenticated) {
-      localStorage.setItem('matchesSeleccionados', JSON.stringify(Array.from(matchesSeleccionados.entries())));
-      localStorage.setItem('filasReferencia', JSON.stringify(filasReferencia));
-      localStorage.setItem('filasMatching', JSON.stringify(filasMatching));
-      localStorage.setItem('columnasReferencia', JSON.stringify(columnasReferencia));
-      localStorage.setItem('columnasMatching', JSON.stringify(columnasMatching));
-      localStorage.setItem('indiceActual', indiceActual);
-      localStorage.setItem('contadorMatches', contadorMatches);
-      localStorage.setItem('contadorNoMatches', contadorNoMatches);
+      try {
+        // Solo guardar datos pequeños: matches, índices y contadores
+        localStorage.setItem('matchesSeleccionados', JSON.stringify(Array.from(matchesSeleccionados.entries())));
+        localStorage.setItem('indiceActual', indiceActual);
+        localStorage.setItem('contadorMatches', contadorMatches);
+        localStorage.setItem('contadorNoMatches', contadorNoMatches);
+        
+        // NO guardar filasReferencia, filasMatching, ni columnas (están en DB)
+        // Esto previene el error QuotaExceededError
+      } catch (error) {
+        if (error.name === 'QuotaExceededError') {
+          console.warn('⚠️ LocalStorage lleno. Solo se guardarán datos esenciales.');
+          // Intentar limpiar datos antiguos innecesarios
+          localStorage.removeItem('filasReferencia');
+          localStorage.removeItem('filasMatching');
+          localStorage.removeItem('columnasReferencia');
+          localStorage.removeItem('columnasMatching');
+        }
+      }
     }
-  }, [isAuthenticated, matchesSeleccionados, filasReferencia, filasMatching, columnasReferencia, columnasMatching, indiceActual, contadorMatches, contadorNoMatches]);
+  }, [isAuthenticated, matchesSeleccionados, indiceActual, contadorMatches, contadorNoMatches]);
 
   // Scroll automático al último match hecho (para poder corregir fácilmente)
   useEffect(() => {
@@ -1264,6 +1268,11 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');
+    // Limpiar también datos antiguos que pueden estar ocupando espacio
+    localStorage.removeItem('filasReferencia');
+    localStorage.removeItem('filasMatching');
+    localStorage.removeItem('columnasReferencia');
+    localStorage.removeItem('columnasMatching');
     setIsAuthenticated(false);
   };
 
