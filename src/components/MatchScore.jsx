@@ -124,7 +124,8 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
             <div>
               <b>Marca:</b> {match.producto[columnasMatching.MARCA] || "—"} | 
               <b> Cantidad:</b> {match.producto[columnasMatching.CANTIDAD]} {match.producto[columnasMatching.MEDIDA]} | 
-              <b> Formato:</b> {match.producto[columnasMatching.FORMATO] || "—"}
+              <b> Formato:</b> {match.producto[columnasMatching.FORMATO] || "—"} | 
+              <b> Unidades:</b> {match.producto[columnasMatching.UNIDADES] || "—"}
             </div>
             {match.producto[columnasMatching.PMEDIO] && (
               <div style={{marginTop: "2px"}}>

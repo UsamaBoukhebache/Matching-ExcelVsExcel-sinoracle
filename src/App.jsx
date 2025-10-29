@@ -728,38 +728,39 @@ export default function App() {
       return;
     }
 
-    const terminoNormalizado = normalizarDescripcion(busquedaManual);
-    const terminosTokens = tokenizar(busquedaManual);
+    // Búsqueda LITERAL (sin normalizar ni tokenizar)
+    // Solo convertir a minúsculas para que sea case-insensitive
+    const terminoBusqueda = busquedaManual.trim().toLowerCase();
     
-    // Buscar en descripción, marca, CODIPROD
+    // Buscar coincidencias literales en descripción, marca, CODIPROD
     const resultados = filasMatching
       .map((producto, idx) => {
-        const descripcion = normalizarDescripcion(producto[columnasMatching.DESCRIPCION] || "");
-        const marca = normalizarDescripcion(producto[columnasMatching.MARCA] || "");
+        const descripcion = (producto[columnasMatching.DESCRIPCION] || "").toString().toLowerCase();
+        const marca = (producto[columnasMatching.MARCA] || "").toString().toLowerCase();
         const codiprod = (producto[columnasMatching.CODIPROD] || "").toString().toLowerCase();
         
-        // Calcular relevancia
+        // Calcular relevancia solo con coincidencias LITERALES
         let relevancia = 0;
         
-        // Coincidencia exacta en CODIPROD
-        if (codiprod.includes(terminoNormalizado)) {
+        // Coincidencia literal en CODIPROD
+        if (codiprod.includes(terminoBusqueda)) {
           relevancia += 100;
         }
         
-        // Coincidencia en marca
-        if (marca.includes(terminoNormalizado)) {
+        // Coincidencia literal en marca
+        if (marca.includes(terminoBusqueda)) {
           relevancia += 50;
         }
         
-        // Coincidencia en descripción
-        if (descripcion.includes(terminoNormalizado)) {
+        // Coincidencia literal en descripción
+        if (descripcion.includes(terminoBusqueda)) {
           relevancia += 30;
         }
         
-        // Similitud por tokens
-        const descripcionTokens = tokenizar(producto[columnasMatching.DESCRIPCION]);
-        const similitud = similitudMejorada(terminosTokens, descripcionTokens);
-        relevancia += similitud * 20;
+        // Si no hay ninguna coincidencia literal, no incluir este producto
+        if (relevancia === 0) {
+          return null;
+        }
         
         // Calcular puntuación completa como en las sugerencias automáticas
         const productoRef = filasReferencia[indiceActual];
@@ -772,7 +773,7 @@ export default function App() {
           ...puntuacionCompleta
         };
       })
-      .filter(r => r.relevancia > 0)
+      .filter(r => r !== null) // Filtrar los null
       .sort((a, b) => b.relevancia - a.relevancia)
       .slice(0, cantidadProductos); // Usar la misma cantidad que las sugerencias automáticas
 
@@ -1967,20 +1968,57 @@ export default function App() {
                   flexDirection: "column",
                   gap: "6px"
                 }}>
-                  {calcularTop5ParaActual().map((match, idx) => (
-                    <MatchScore
-                      key={idx}
-                      match={match}
-                      columnasMatching={columnasMatching}
-                      onSelect={() => seleccionarMatch(match.producto)}
-                      isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
-                      numeroAtajo={idx + 1}
-                      onCheckboxChange={() => toggleSeleccionMultiple(idx)}
-                      isChecked={seleccionMultiple.has(idx)}
-                      haySeleccionMultiple={seleccionMultiple.size}
-                      marcaReferencia={filasReferencia[indiceActual]?.[columnasReferencia.MARCA]}
-                    />
-                  ))}
+                  {/* Mostrar mensaje si la búsqueda está activa pero no hay resultados */}
+                  {busquedaActiva && resultadosBusqueda.length === 0 ? (
+                    <div style={{
+                      padding: "20px",
+                      textAlign: "center",
+                      backgroundColor: "#fef2f2",
+                      borderRadius: "8px",
+                      border: "2px dashed #dc2626"
+                    }}>
+                      <div style={{fontSize: "32px", marginBottom: "10px"}}>🔍</div>
+                      <div style={{fontSize: "14px", fontWeight: "bold", color: "#dc2626", marginBottom: "5px"}}>
+                        No se han encontrado resultados
+                      </div>
+                      <div style={{fontSize: "11px", color: "#6c757d"}}>
+                        No hay productos que contengan "{busquedaManual}" literalmente
+                      </div>
+                      <button
+                        onClick={limpiarBusqueda}
+                        style={{
+                          marginTop: "10px",
+                          backgroundColor: "#dc2626",
+                          color: "white",
+                          border: "none",
+                          padding: "6px 12px",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          cursor: "pointer"
+                        }}
+                      >
+                        Limpiar búsqueda
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {calcularTop5ParaActual().map((match, idx) => (
+                        <MatchScore
+                          key={idx}
+                          match={match}
+                          columnasMatching={columnasMatching}
+                          onSelect={() => seleccionarMatch(match.producto)}
+                          isSelected={matchesSeleccionados.get(indiceActual)?.codiprodpx === match.producto[columnasMatching.CODIPROD]}
+                          numeroAtajo={idx + 1}
+                          onCheckboxChange={() => toggleSeleccionMultiple(idx)}
+                          isChecked={seleccionMultiple.has(idx)}
+                          haySeleccionMultiple={seleccionMultiple.size}
+                          marcaReferencia={filasReferencia[indiceActual]?.[columnasReferencia.MARCA]}
+                        />
+                      ))}
+                    </>
+                  )}
                   
                   <div style={{
                     border: "2px solid #dc3545",

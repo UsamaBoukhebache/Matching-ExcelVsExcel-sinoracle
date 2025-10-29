@@ -13,7 +13,8 @@ export function ProductCard({ title, product, columns }) {
         <p style={{margin: "2px 0"}}>
           <b>Marca:</b> {product[columns.MARCA]} |{" "}
           <b>Cantidad:</b> {product[columns.CANTIDAD]} {product[columns.MEDIDA]} |{" "}
-          <b>Formato:</b> {product[columns.FORMATO]}
+          <b>Formato:</b> {product[columns.FORMATO]} |{" "}
+          <b>Unidades:</b> {product[columns.UNIDADES] || "—"}
         </p>
         {product[columns.PMEDIO] && (
           <p style={{margin: "2px 0"}}>
