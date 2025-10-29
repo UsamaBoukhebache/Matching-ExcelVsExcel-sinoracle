@@ -203,6 +203,28 @@ class SessionService {
     this.matchCounter = 0; // Reset contador
     return await this.updateProgress(sesionId, progreso);
   }
+
+  // =====================================================
+  // GUARDAR MAPEO DE MARCAS EDITADAS
+  // =====================================================
+  async saveBrandMapping(sesionId, mapeoMarcas) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/save-brand-mapping.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sesion_id: sesionId,
+          mapeo_marcas: mapeoMarcas // Objeto { "marca-original": "marca-nueva" }
+        })
+      });
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error guardando mapeo de marcas:', error);
+      return { success: false, message: 'Error de conexión' };
+    }
+  }
 }
 
 export default new SessionService();

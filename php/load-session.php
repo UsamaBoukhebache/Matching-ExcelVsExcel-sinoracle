@@ -40,6 +40,11 @@ try {
         $sesion['pesos_config'] = json_decode($sesion['pesos_config'], true);
     }
     
+    // Decodificar mapeo de marcas
+    if ($sesion['mapeo_marcas']) {
+        $sesion['mapeo_marcas'] = json_decode($sesion['mapeo_marcas'], true);
+    }
+    
     // Obtener archivos (descomprimir datos)
     $stmt = $pdo->prepare("
         SELECT 

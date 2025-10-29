@@ -8,6 +8,7 @@ import { WeightAdjuster } from "./components/WeightAdjuster";
 import { MatchScore } from "./components/MatchScore";
 import Login from "./components/Login";
 import sessionService from "./services/sessionService";
+import { Notification, ConfirmDialog } from "./components/Notification";
 
 /** Normaliza EAN */
 function normalizarEAN(raw) {
@@ -273,7 +274,7 @@ function adivinarColumnas(cabecera) {
     MARCA: pick(["marca"], "MARCA"),
     UNIDADES: pick(["unidades"], "UNIDADES"),
     SABOR: pick(["sabor"], "SABOR"),
-    PMEDIO: pick(["pmedio"], "PMEDIO"),
+    PMEDIO: pick(["pmedio", "pvp", "precio"], "PMEDIO"),
     EQUIVALE: pick(["equivale"], "EQUIVALE"),
     FACTOR: pick(["factor"], "FACTOR"),
     CODIPRODPX: pick(["codiprodpx"], "CODIPRODPX"),
@@ -332,6 +333,144 @@ export default function App() {
   const [busquedaManual, setBusquedaManual] = useState("");
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const [busquedaActiva, setBusquedaActiva] = useState(false); // Controla si se muestran resultados de búsqueda en vez de top automáticos
+
+  // Estados para notificaciones y confirmaciones
+  const [notificacion, setNotificacion] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  // Estado para mapeo de marcas editadas: { "marca-original": "marca-nueva" }
+  const [marcasEditadas, setMarcasEditadas] = useState(new Map());
+  const [editandoMarca, setEditandoMarca] = useState(null); // { marcaOriginal: "...", marcaNueva: "..." }
+
+  // Funciones helper para notificaciones
+  const mostrarNotificacion = (message, type = 'info', duration = 4000) => {
+    setNotificacion({ message, type, duration });
+  };
+
+  const mostrarConfirmacion = (message, title = '¿Estás seguro?') => {
+    return new Promise((resolve) => {
+      setConfirmDialog({
+        message,
+        title,
+        onConfirm: () => {
+          setConfirmDialog(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setConfirmDialog(null);
+          resolve(false);
+        }
+      });
+    });
+  };
+
+  /** 
+   * Obtiene la marca efectiva de un producto de matching
+   * (si fue editada, devuelve la nueva; si no, la original)
+   */
+  function obtenerMarcaEfectiva(productoMatch) {
+    if (!columnasMatching?.MARCA) return "";
+    const marcaOriginal = productoMatch[columnasMatching.MARCA] || "";
+    return marcasEditadas.get(marcaOriginal) || marcaOriginal;
+  }
+
+  /**
+   * Editar una marca del archivo de sugerencias (cliente)
+   * Aplicar el cambio a TODOS los productos con esa marca
+   */
+  async function editarMarcaSugerencia(marcaOriginal, marcaNueva) {
+    if (!marcaOriginal || !marcaNueva) return;
+    
+    const marcaNuevaTrim = marcaNueva.trim();
+    if (!marcaNuevaTrim) return;
+    
+    // Si es la misma marca, no hacer nada
+    if (marcaOriginal === marcaNuevaTrim) {
+      setEditandoMarca(null);
+      return;
+    }
+    
+    const confirmacion = await mostrarConfirmacion(
+      `¿Cambiar todas las ocurrencias de "${marcaOriginal}" por "${marcaNuevaTrim}"?\n\n` +
+      `Esto afectará a todos los productos de sugerencias con esta marca y recalculará automáticamente las puntuaciones.`,
+      '✏️ Editar marca'
+    );
+    
+    if (!confirmacion) {
+      setEditandoMarca(null);
+      return;
+    }
+    
+    // Actualizar el mapeo de marcas editadas
+    const nuevoMapeo = new Map(marcasEditadas);
+    nuevoMapeo.set(marcaOriginal, marcaNuevaTrim);
+    setMarcasEditadas(nuevoMapeo);
+    
+    // Aplicar el cambio directamente en filasMatching
+    const filasActualizadas = filasMatching.map(fila => {
+      if (fila[columnasMatching.MARCA] === marcaOriginal) {
+        return {
+          ...fila,
+          [columnasMatching.MARCA]: marcaNuevaTrim
+        };
+      }
+      return fila;
+    });
+    
+    setFilasMatching(filasActualizadas);
+    
+    // Contar productos afectados
+    const productosActualizados = filasActualizadas.filter(
+      fila => fila[columnasMatching.MARCA] === marcaNuevaTrim
+    ).length;
+    
+    // Guardar en BD (mapeo de marcas editadas)
+    if (sesionActiva) {
+      try {
+        // Convertir Map a objeto para guardar en BD
+        const mapeoObj = Object.fromEntries(nuevoMapeo);
+        await sessionService.saveBrandMapping(sesionActiva, mapeoObj);
+        console.log('✅ Mapeo de marcas guardado en BD');
+      } catch (error) {
+        console.error('Error guardando mapeo de marcas:', error);
+      }
+    }
+    
+    // Mostrar notificación
+    mostrarNotificacion(
+      `✅ Marca actualizada correctamente\n\n` +
+      `"${marcaOriginal}" → "${marcaNuevaTrim}"\n` +
+      `${productosActualizados} productos actualizados`,
+      'success',
+      5000
+    );
+    
+    // Cerrar modal de edición
+    setEditandoMarca(null);
+    
+    // Limpiar búsqueda si estaba activa para refrescar resultados
+    if (busquedaActiva) {
+      limpiarBusqueda();
+    }
+  }
+
+  /**
+   * Abrir modal de edición de marca
+   */
+  function abrirEdicionMarca(marcaOriginal) {
+    const marcaActual = marcasEditadas.get(marcaOriginal) || marcaOriginal;
+    setEditandoMarca({
+      marcaOriginal,
+      marcaNueva: marcaActual
+    });
+  }
+
+  /**
+   * Verificar si una marca fue editada
+   */
+  function marcaFueEditada(marcaOriginal) {
+    return marcasEditadas.has(marcaOriginal);
+  }
 
   /** Cargar Excel de referencia */
   function manejarFicheroReferencia(e) {
@@ -442,7 +581,7 @@ export default function App() {
     puntuaciones.aecoc = puntuacionAECOC(aecocRef, aecocMatch, pesos.aecoc);
 
     const marcaRefOriginal = productoRef[columnasReferencia.MARCA] ?? "";
-    const marcaMatchOriginal = productoMatch[columnasMatching.MARCA] ?? "";
+    const marcaMatchOriginal = obtenerMarcaEfectiva(productoMatch) ?? "";
     const marcaRef = normalizarDescripcion(marcaRefOriginal);
     const marcaMatch = normalizarDescripcion(marcaMatchOriginal);
     if (marcaRef && marcaMatch && marcaRef === marcaMatch) {
@@ -720,6 +859,106 @@ export default function App() {
     }
   }
 
+  async function noMatchPorMarca(marca) {
+    if (!marca) return;
+    
+    const confirmacion = await mostrarConfirmacion(
+      `¿Estás seguro de marcar como NO MATCH todos los productos de la marca "${marca}"?\n\n` +
+      `Esto afectará a TODOS los productos pendientes de matchear que tengan esta marca.`,
+      '⚠️ Marcar marca completa como NO MATCH'
+    );
+    
+    if (!confirmacion) return;
+    
+    const nuevosMatches = new Map(matchesSeleccionados);
+    let productosAfectados = 0;
+    let nuevosNoMatches = 0;
+    let matchesConvertidos = 0;
+    
+    // Normalizar la marca para comparación case-insensitive
+    const marcaNormalizada = normalizarDescripcion(marca);
+    
+    // Recorrer todos los productos de referencia
+    filasReferencia.forEach((producto, idx) => {
+      const marcaProducto = producto[columnasReferencia.MARCA];
+      const marcaProductoNormalizada = normalizarDescripcion(marcaProducto);
+      
+      // Si la marca coincide
+      if (marcaProductoNormalizada === marcaNormalizada) {
+        const matchAnterior = matchesSeleccionados.get(idx);
+        
+        // Solo marcar como NO MATCH si no tiene match previo o si tenía un match válido
+        if (!matchAnterior) {
+          nuevosNoMatches++;
+          productosAfectados++;
+        } else if (!matchAnterior.esNoMatch) {
+          matchesConvertidos++;
+          productosAfectados++;
+        } else {
+          // Ya era NO MATCH, no contar
+          return;
+        }
+        
+        // Marcar como NO MATCH con comentario de marca
+        nuevosMatches.set(idx, {
+          codiprodpx: `NO MATCH - Marca: ${marca}`,
+          esNoMatch: true,
+          tieneComentario: true,
+          porMarca: true
+        });
+        
+        // Guardar en BD de forma asíncrona (no esperar)
+        guardarMatchEnBD(idx, {
+          codiprodSugerido: `NO MATCH - Marca: ${marca}`,
+          puntuacionTotal: null,
+          detalles: null,
+          esMultiple: false,
+          esNoMatch: true
+        });
+      }
+    });
+    
+    if (productosAfectados > 0) {
+      // Actualizar estado
+      setMatchesSeleccionados(nuevosMatches);
+      setContadorNoMatches(prev => prev + nuevosNoMatches);
+      setContadorMatches(prev => prev - matchesConvertidos);
+      
+      // Mostrar mensaje de confirmación
+      mostrarNotificacion(
+        `Se han marcado ${productosAfectados} productos como NO MATCH:\n\n` +
+        `• ${nuevosNoMatches} productos sin match previo\n` +
+        `• ${matchesConvertidos} productos con match convertidos a NO MATCH\n\n` +
+        `Marca: "${marca}"`,
+        'success',
+        6000
+      );
+      
+      // Avanzar al siguiente producto que no sea de esa marca
+      let siguienteIndice = indiceActual + 1;
+      while (siguienteIndice < filasReferencia.length) {
+        const marcaSiguiente = filasReferencia[siguienteIndice][columnasReferencia.MARCA];
+        const marcaSiguienteNormalizada = normalizarDescripcion(marcaSiguiente);
+        
+        if (marcaSiguienteNormalizada !== marcaNormalizada) {
+          setIndiceActual(siguienteIndice);
+          break;
+        }
+        siguienteIndice++;
+      }
+      
+      // Si no hay más productos de otra marca, quedarse en el último
+      if (siguienteIndice >= filasReferencia.length) {
+        setIndiceActual(filasReferencia.length - 1);
+      }
+    } else {
+      mostrarNotificacion(
+        `No se encontraron productos de la marca "${marca}" para marcar como NO MATCH.`,
+        'warning'
+      );
+    }
+  }
+
   function ejecutarBusquedaManual() {
     if (!busquedaManual.trim() || !filasMatching.length || !columnasMatching) {
       // Si está vacío, volver a las sugerencias automáticas
@@ -796,9 +1035,15 @@ export default function App() {
       
       // Si hay match
       if (match) {
-        // Si es NO MATCH con comentario, agregar "NO MATCH: " antes del comentario
+        // Si es NO MATCH con comentario
         if (match.esNoMatch && match.tieneComentario) {
-          filaLimpia[columnasReferencia.CODIPRODPX] = `NO MATCH: ${match.codiprodpx}`;
+          // Si ya empieza con "NO MATCH", no duplicar
+          if (match.codiprodpx.startsWith('NO MATCH')) {
+            filaLimpia[columnasReferencia.CODIPRODPX] = match.codiprodpx;
+          } else {
+            // Si no, agregar "NO MATCH: " antes del comentario
+            filaLimpia[columnasReferencia.CODIPRODPX] = `NO MATCH: ${match.codiprodpx}`;
+          }
         } else {
           filaLimpia[columnasReferencia.CODIPRODPX] = match.codiprodpx;
         }
@@ -857,7 +1102,7 @@ export default function App() {
           console.log('✅ Archivo de referencia subido:', uploadResult.stats);
         } else {
           console.error('❌ Error subiendo archivo de referencia:', uploadResult.error);
-          alert('Error al subir el archivo de referencia: ' + uploadResult.error);
+          mostrarNotificacion('Error al subir el archivo de referencia: ' + uploadResult.error, 'error');
         }
         
         // Recargar lista de sesiones
@@ -865,7 +1110,7 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error creando sesión:', error);
-      alert('Error al crear la sesión: ' + error.message);
+      mostrarNotificacion('Error al crear la sesión: ' + error.message, 'error');
     }
   }
 
@@ -927,11 +1172,11 @@ export default function App() {
         console.log(`✅ Archivo ${tipoArchivo} subido:`, result.stats);
       } else {
         console.error(`❌ Error subiendo ${tipoArchivo}:`, result.error);
-        alert(`Error al subir archivo ${tipoArchivo}: ${result.error}`);
+        mostrarNotificacion(`Error al subir archivo ${tipoArchivo}: ${result.error}`, 'error');
       }
     } catch (error) {
       console.error(`❌ Error subiendo archivo ${tipoArchivo}:`, error);
-      alert(`Error al subir archivo ${tipoArchivo}: ${error.message}`);
+      mostrarNotificacion(`Error al subir archivo ${tipoArchivo}: ${error.message}`, 'error');
     }
   }
 
@@ -1002,6 +1247,13 @@ export default function App() {
           setPesos(result.sesion.pesos_config);
         }
         
+        // Cargar mapeo de marcas editadas si existe
+        if (result.sesion.mapeo_marcas) {
+          const mapeoMarcas = new Map(Object.entries(result.sesion.mapeo_marcas));
+          setMarcasEditadas(mapeoMarcas);
+          console.log('✏️ Mapeo de marcas cargado:', mapeoMarcas.size, 'marcas editadas');
+        }
+        
         // Cargar resultados
         const matchesMap = new Map();
         Object.entries(result.resultados || {}).forEach(([indice, match]) => {
@@ -1018,11 +1270,11 @@ export default function App() {
         setMostrarSelectorSesiones(false);
       } else {
         console.error('❌ Error en loadSession:', result.error);
-        alert('Error al cargar la sesión: ' + (result.error || 'Error desconocido'));
+        mostrarNotificacion('Error al cargar la sesión: ' + (result.error || 'Error desconocido'), 'error');
       }
     } catch (error) {
       console.error('❌ Error cargando sesión:', error);
-      alert('Error al cargar la sesión: ' + error.message);
+      mostrarNotificacion('Error al cargar la sesión: ' + error.message, 'error');
     }
   }
 
@@ -1063,7 +1315,12 @@ export default function App() {
   }
 
   async function eliminarSesion(sesionId, nombreSesion) {
-    if (!window.confirm(`¿Estás seguro de eliminar la sesión "${nombreSesion}"?\n\nEsto eliminará todos los archivos y matches guardados.`)) {
+    const confirmacion = await mostrarConfirmacion(
+      `¿Estás seguro de eliminar la sesión "${nombreSesion}"?\n\nEsto eliminará todos los archivos y matches guardados.`,
+      '🗑️ Eliminar sesión'
+    );
+    
+    if (!confirmacion) {
       return;
     }
 
@@ -1086,10 +1343,10 @@ export default function App() {
       
       // Recargar lista de sesiones
       await cargarSesionesUsuario();
-      alert('Sesión eliminada correctamente');
+      mostrarNotificacion('Sesión eliminada correctamente', 'success');
     } catch (error) {
       console.error('Error eliminando sesión:', error);
-      alert('Error al eliminar la sesión: ' + error.message);
+      mostrarNotificacion('Error al eliminar la sesión: ' + error.message, 'error');
     }
   }
 
@@ -1277,8 +1534,11 @@ export default function App() {
     setIsAuthenticated(false);
   };
 
-  const handleClearSession = () => {
-    const confirmClear = window.confirm("¿Seguro que quieres reiniciar el proceso? Se perderá todo el progreso actual.");
+  const handleClearSession = async () => {
+    const confirmClear = await mostrarConfirmacion(
+      "¿Seguro que quieres reiniciar el proceso? Se perderá todo el progreso actual.",
+      "🔄 Reiniciar sesión"
+    );
     if (confirmClear) {
       localStorage.removeItem('matchesSeleccionados');
       localStorage.removeItem('filasReferencia');
@@ -1328,9 +1588,13 @@ export default function App() {
         
         <div style={{ display: "flex", gap: "8px" }}>
           <button
-            onClick={() => {
+            onClick={async () => {
               if (sesionActiva && (filasReferencia.length > 0 || filasMatching.length > 0)) {
-                if (!window.confirm('¿Crear una nueva sesión? Se limpiará el trabajo actual.')) {
+                const confirmacion = await mostrarConfirmacion(
+                  '¿Crear una nueva sesión? Se limpiará el trabajo actual.',
+                  '✨ Nueva sesión'
+                );
+                if (!confirmacion) {
                   return;
                 }
               }
@@ -1771,6 +2035,7 @@ export default function App() {
                   title=""
                   product={filasReferencia[indiceActual]}
                   columns={columnasReferencia}
+                  onNoMatchMarca={noMatchPorMarca}
                 />
               </div>
 
@@ -2015,6 +2280,8 @@ export default function App() {
                           isChecked={seleccionMultiple.has(idx)}
                           haySeleccionMultiple={seleccionMultiple.size}
                           marcaReferencia={filasReferencia[indiceActual]?.[columnasReferencia.MARCA]}
+                          onEditarMarca={abrirEdicionMarca}
+                          marcaFueEditada={marcaFueEditada}
                         />
                       ))}
                     </>
@@ -2190,6 +2457,137 @@ export default function App() {
           Sube dos archivos Excel: <strong>Productos a Matchear</strong> (los que necesitas encontrar) y <strong>Catálogo/Base de Datos</strong> (donde buscarás las coincidencias).
         </div>
       ) : null}
+
+      {/* Notificaciones */}
+      {notificacion && (
+        <Notification
+          message={notificacion.message}
+          type={notificacion.type}
+          duration={notificacion.duration}
+          onClose={() => setNotificacion(null)}
+        />
+      )}
+
+      {/* Diálogo de confirmación */}
+      {confirmDialog && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
+        />
+      )}
+
+      {/* Modal de edición de marca */}
+      {editandoMarca && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: "12px",
+            padding: "24px",
+            maxWidth: "500px",
+            width: "90%",
+            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.3)"
+          }}>
+            <h3 style={{ marginTop: 0, color: "#1e293b" }}>✏️ Editar Marca</h3>
+            <p style={{ color: "#64748b", fontSize: "14px" }}>
+              Cambiará <b>todas las ocurrencias</b> de esta marca en el archivo de sugerencias.
+            </p>
+            
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: "#334155" }}>
+                Marca original:
+              </label>
+              <input
+                type="text"
+                value={editandoMarca.marcaOriginal}
+                disabled
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  fontSize: "14px",
+                  border: "2px solid #e2e8f0",
+                  borderRadius: "6px",
+                  background: "#f1f5f9",
+                  color: "#64748b"
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: "#334155" }}>
+                Nueva marca:
+              </label>
+              <input
+                type="text"
+                value={editandoMarca.marcaNueva}
+                onChange={(e) => setEditandoMarca({ ...editandoMarca, marcaNueva: e.target.value })}
+                autoFocus
+                placeholder="Escribe la marca corregida..."
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  fontSize: "14px",
+                  border: "2px solid #3b82f6",
+                  borderRadius: "6px",
+                  outline: "none"
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    editarMarcaSugerencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva);
+                  } else if (e.key === 'Escape') {
+                    setEditandoMarca(null);
+                  }
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setEditandoMarca(null)}
+                style={{
+                  padding: "10px 20px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  background: "#e2e8f0",
+                  color: "#475569",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => editarMarcaSugerencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva)}
+                style={{
+                  padding: "10px 20px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  background: "#3b82f6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                ✅ Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
