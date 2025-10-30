@@ -18,17 +18,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 $isLocal = strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
 
 if ($isLocal) {
-    // Configuración para XAMPP local
+    // Configuración en local se guarda en logroño
     $host = '10.0.0.7';
     $dbname = 'matching';
     $username = 'usama';
     $password = 'Usama.md.2015';
 } else {
     // Configuración para producción IONOS
-    $host = '10.0.0.7';
-    $dbname = 'matching';
-    $username = 'usama';
-    $password = 'Usama.md.2015';
+    $host = 'db5018270399.hosting-data.io';
+    $dbname = 'dbs14486406';
+    $username = 'dbu2851060';
+    $password = 'Matching_2025_MercaDinamica';
 }
 
 try {

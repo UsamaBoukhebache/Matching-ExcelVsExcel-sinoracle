@@ -59,8 +59,8 @@ const Login = ({ onLoginSuccess }) => {
       // URL base según entorno
       const BASE_URL =
         import.meta.env.MODE === "development"
-          ? "https://www.mercadinamica.es/v2/matching-app/php" // entorno local (XAMPP)
-          : "https://www.mercadinamica.es/v2/matching-app/php"; // producción en IONOS
+          ? "https://www.mercadinamica.es/v2/matching-app/php" // entorno local en logroño
+          : "https://www.mercadinamica.net/matching-app/php"; // producción en IONOS
 
       const response = await fetch(`${BASE_URL}/login.php`, {
         method: "POST",

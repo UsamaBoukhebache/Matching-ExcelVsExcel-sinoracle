@@ -20,10 +20,10 @@ if ($isLocal) {
     $password = 'Usama.md.2015';
 } else {
     // Configuración para producción IONOS
-    $host = '10.0.0.7';
-    $dbname = 'matching';
-    $username = 'usama';
-    $password = 'Usama.md.2015';
+    $host = 'db5018270399.hosting-data.io';
+    $dbname = 'dbs14486406';
+    $username = 'dbu2851060';
+    $password = 'Matching_2025_MercaDinamica';
 }
 
 try {

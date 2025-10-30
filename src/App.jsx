@@ -365,20 +365,20 @@ export default function App() {
   };
 
   /** 
-   * Obtiene la marca efectiva de un producto de matching
+   * Obtiene la marca efectiva de un producto de referencia
    * (si fue editada, devuelve la nueva; si no, la original)
    */
-  function obtenerMarcaEfectiva(productoMatch) {
-    if (!columnasMatching?.MARCA) return "";
-    const marcaOriginal = productoMatch[columnasMatching.MARCA] || "";
+  function obtenerMarcaEfectiva(productoRef) {
+    if (!columnasReferencia?.MARCA) return "";
+    const marcaOriginal = productoRef[columnasReferencia.MARCA] || "";
     return marcasEditadas.get(marcaOriginal) || marcaOriginal;
   }
 
   /**
-   * Editar una marca del archivo de sugerencias (cliente)
+   * Editar una marca del archivo de REFERENCIA (tu archivo de entrada)
    * Aplicar el cambio a TODOS los productos con esa marca
    */
-  async function editarMarcaSugerencia(marcaOriginal, marcaNueva) {
+  async function editarMarcaReferencia(marcaOriginal, marcaNueva) {
     if (!marcaOriginal || !marcaNueva) return;
     
     const marcaNuevaTrim = marcaNueva.trim();
@@ -392,7 +392,7 @@ export default function App() {
     
     const confirmacion = await mostrarConfirmacion(
       `¿Cambiar todas las ocurrencias de "${marcaOriginal}" por "${marcaNuevaTrim}"?\n\n` +
-      `Esto afectará a todos los productos de sugerencias con esta marca y recalculará automáticamente las puntuaciones.`,
+      `Esto afectará a todos TUS productos (referencia) con esta marca y recalculará automáticamente las puntuaciones.`,
       '✏️ Editar marca'
     );
     
@@ -406,22 +406,22 @@ export default function App() {
     nuevoMapeo.set(marcaOriginal, marcaNuevaTrim);
     setMarcasEditadas(nuevoMapeo);
     
-    // Aplicar el cambio directamente en filasMatching
-    const filasActualizadas = filasMatching.map(fila => {
-      if (fila[columnasMatching.MARCA] === marcaOriginal) {
+    // Aplicar el cambio directamente en filasReferencia
+    const filasActualizadas = filasReferencia.map(fila => {
+      if (fila[columnasReferencia.MARCA] === marcaOriginal) {
         return {
           ...fila,
-          [columnasMatching.MARCA]: marcaNuevaTrim
+          [columnasReferencia.MARCA]: marcaNuevaTrim
         };
       }
       return fila;
     });
     
-    setFilasMatching(filasActualizadas);
+    setFilasReferencia(filasActualizadas);
     
     // Contar productos afectados
     const productosActualizados = filasActualizadas.filter(
-      fila => fila[columnasMatching.MARCA] === marcaNuevaTrim
+      fila => fila[columnasReferencia.MARCA] === marcaNuevaTrim
     ).length;
     
     // Guardar en BD (mapeo de marcas editadas)
@@ -580,8 +580,8 @@ export default function App() {
     const aecocMatch = productoMatch[columnasMatching.AECOC];
     puntuaciones.aecoc = puntuacionAECOC(aecocRef, aecocMatch, pesos.aecoc);
 
-    const marcaRefOriginal = productoRef[columnasReferencia.MARCA] ?? "";
-    const marcaMatchOriginal = obtenerMarcaEfectiva(productoMatch) ?? "";
+    const marcaRefOriginal = obtenerMarcaEfectiva(productoRef) ?? "";
+    const marcaMatchOriginal = productoMatch[columnasMatching.MARCA] ?? "";
     const marcaRef = normalizarDescripcion(marcaRefOriginal);
     const marcaMatch = normalizarDescripcion(marcaMatchOriginal);
     if (marcaRef && marcaMatch && marcaRef === marcaMatch) {
@@ -2036,6 +2036,8 @@ export default function App() {
                   product={filasReferencia[indiceActual]}
                   columns={columnasReferencia}
                   onNoMatchMarca={noMatchPorMarca}
+                  onEditarMarca={abrirEdicionMarca}
+                  marcaFueEditada={marcaFueEditada}
                 />
               </div>
 
@@ -2280,8 +2282,6 @@ export default function App() {
                           isChecked={seleccionMultiple.has(idx)}
                           haySeleccionMultiple={seleccionMultiple.size}
                           marcaReferencia={filasReferencia[indiceActual]?.[columnasReferencia.MARCA]}
-                          onEditarMarca={abrirEdicionMarca}
-                          marcaFueEditada={marcaFueEditada}
                         />
                       ))}
                     </>
@@ -2500,9 +2500,9 @@ export default function App() {
             width: "90%",
             boxShadow: "0 10px 40px rgba(0, 0, 0, 0.3)"
           }}>
-            <h3 style={{ marginTop: 0, color: "#1e293b" }}>✏️ Editar Marca</h3>
+            <h3 style={{ marginTop: 0, color: "#1e293b" }}>✏️ Editar Marca de tu Producto</h3>
             <p style={{ color: "#64748b", fontSize: "14px" }}>
-              Cambiará <b>todas las ocurrencias</b> de esta marca en el archivo de sugerencias.
+              Cambiará <b>todas las ocurrencias</b> de esta marca en TU archivo de entrada (referencia).
             </p>
             
             <div style={{ marginBottom: "16px" }}>
@@ -2545,7 +2545,7 @@ export default function App() {
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    editarMarcaSugerencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva);
+                    editarMarcaReferencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva);
                   } else if (e.key === 'Escape') {
                     setEditandoMarca(null);
                   }
@@ -2570,7 +2570,7 @@ export default function App() {
                 Cancelar
               </button>
               <button
-                onClick={() => editarMarcaSugerencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva)}
+                onClick={() => editarMarcaReferencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva)}
                 style={{
                   padding: "10px 20px",
                   fontSize: "14px",

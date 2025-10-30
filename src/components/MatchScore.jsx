@@ -1,16 +1,8 @@
-export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo, onCheckboxChange, isChecked, haySeleccionMultiple, marcaReferencia, onEditarMarca, marcaFueEditada }) {
+export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo, onCheckboxChange, isChecked, haySeleccionMultiple, marcaReferencia }) {
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
     if (onCheckboxChange) {
       onCheckboxChange();
-    }
-  };
-
-  const handleEditarMarca = (e) => {
-    e.stopPropagation();
-    if (onEditarMarca) {
-      const marcaOriginal = match.producto[columnasMatching.MARCA];
-      onEditarMarca(marcaOriginal);
     }
   };
 
@@ -130,37 +122,7 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
               <b> AECOC:</b> {match.producto[columnasMatching.AECOC] || "—"}
             </div>
             <div>
-              <b>Marca:</b> {match.producto[columnasMatching.MARCA] || "—"}
-              {marcaFueEditada && marcaFueEditada(match.producto[columnasMatching.MARCA]) && (
-                <span style={{
-                  marginLeft: "4px",
-                  fontSize: "10px",
-                  color: "#f59e0b",
-                  fontWeight: "bold"
-                }} title="Esta marca fue editada manualmente">
-                  ✏️
-                </span>
-              )}
-              {onEditarMarca && (
-                <button
-                  onClick={handleEditarMarca}
-                  style={{
-                    marginLeft: "6px",
-                    padding: "2px 6px",
-                    fontSize: "9px",
-                    background: "#3b82f6",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "3px",
-                    cursor: "pointer",
-                    fontWeight: "600"
-                  }}
-                  title="Editar marca para todos los productos"
-                >
-                  ✏️ Editar
-                </button>
-              )}
-               | 
+              <b>Marca:</b> {match.producto[columnasMatching.MARCA] || "—"} | 
               <b> Cantidad:</b> {match.producto[columnasMatching.CANTIDAD]} {match.producto[columnasMatching.MEDIDA]} | 
               <b> Formato:</b> {match.producto[columnasMatching.FORMATO] || "—"} | 
               <b> Unidades:</b> {match.producto[columnasMatching.UNIDADES] || "—"}

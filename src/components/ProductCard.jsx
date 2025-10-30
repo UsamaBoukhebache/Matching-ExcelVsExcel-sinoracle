@@ -1,4 +1,4 @@
-export function ProductCard({ title, product, columns, onNoMatchMarca }) {
+export function ProductCard({ title, product, columns, onNoMatchMarca, onEditarMarca, marcaFueEditada }) {
   const marca = product[columns.MARCA];
   
   return (
@@ -11,15 +11,53 @@ export function ProductCard({ title, product, columns, onNoMatchMarca }) {
     }}>
       {title && <h3 style={{margin: "0 0 8px 0", color: "#334155", fontSize: "13px"}}>{title}</h3>}
       
-      {/* Botón NO MATCH MARCA - solo mostrar si hay función callback y marca */}
-      {onNoMatchMarca && marca && (
-        <button
-          onClick={() => onNoMatchMarca(marca)}
-          style={{
-            position: "absolute",
-            top: "10px",
-            right: "10px",
-            backgroundColor: "#dc3545",
+      {/* Botones en la esquina superior derecha */}
+      <div style={{
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        display: "flex",
+        gap: "8px"
+      }}>
+        {/* Botón EDITAR MARCA */}
+        {onEditarMarca && marca && (
+          <button
+            onClick={() => onEditarMarca(marca)}
+            style={{
+              backgroundColor: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              padding: "6px 12px",
+              fontSize: "11px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              transition: "all 0.2s ease",
+              boxShadow: "0 2px 4px rgba(59, 130, 246, 0.3)"
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = "#2563eb";
+              e.currentTarget.style.transform = "scale(1.05)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = "#3b82f6";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+            title={`Editar marca "${marca}" en todos tus productos`}
+          >
+            ✏️ Editar Marca
+          </button>
+        )}
+        
+        {/* Botón NO MATCH MARCA */}
+        {onNoMatchMarca && marca && (
+          <button
+            onClick={() => onNoMatchMarca(marca)}
+            style={{
+              backgroundColor: "#dc3545",
             color: "white",
             border: "none",
             borderRadius: "6px",
@@ -46,6 +84,7 @@ export function ProductCard({ title, product, columns, onNoMatchMarca }) {
           🚫 No Match Marca
         </button>
       )}
+      </div>
       
       <div style={{fontSize: "11px", lineHeight: "1.5"}}>
         <p style={{margin: "2px 0"}}><b>DESCRIPCION:</b> {product[columns.DESCRIPCION]}</p>
@@ -57,7 +96,17 @@ export function ProductCard({ title, product, columns, onNoMatchMarca }) {
             borderRadius: "4px",
             fontWeight: "bold",
             color: "#92400e"
-          }}>{marca || "—"}</span> |{" "}
+          }}>{marca || "—"}</span>
+          {marcaFueEditada && marcaFueEditada(marca) && (
+            <span style={{
+              marginLeft: "6px",
+              fontSize: "11px",
+              color: "#f59e0b",
+              fontWeight: "bold"
+            }} title="Esta marca fue editada manualmente">
+              ✏️ editada
+            </span>
+          )} |{" "}
           <b>Cantidad:</b> {product[columns.CANTIDAD]} {product[columns.MEDIDA]} |{" "}
           <b>Formato:</b> {product[columns.FORMATO]} |{" "}
           <b>Unidades:</b> {product[columns.UNIDADES] || "—"}
