@@ -306,17 +306,17 @@ export default function App() {
   const [contadorMatches, setContadorMatches] = useState(0);
   const [contadorNoMatches, setContadorNoMatches] = useState(0);
   const [pesos, setPesos] = useState({
-    codiProdExacto: 1000,
-    eanExacto: 150,
-    aecoc: 100, 
-    marca: 70,
-    cantidadExacta: 40,
-    medida: 20,
-    formato: 20, 
-    sabor: 10,
-    unidades: 20,
-    precio: 50,
-    descripcionJaccard: 100,
+    codiProdExacto: 0,
+    eanExacto: 200,
+    marca: 80,
+    aecoc: 40, 
+    descripcionJaccard: 40,
+    cantidadExacta: 10,
+    unidades: 5,
+    precio: 2,
+    formato: 1, 
+    medida: 1,
+    sabor: 0,
   });
   const [ponderacionesVisible, setPonderacionesVisible] = useState(false);
   const [comentarioNoMatch, setComentarioNoMatch] = useState("");
