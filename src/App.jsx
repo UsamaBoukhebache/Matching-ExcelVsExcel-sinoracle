@@ -332,6 +332,7 @@ export default function App() {
   // Estados para buscador manual
   const [busquedaManual, setBusquedaManual] = useState("");
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const [totalResultadosBusqueda, setTotalResultadosBusqueda] = useState(0); // Total de resultados encontrados (antes de aplicar límite)
   const [busquedaActiva, setBusquedaActiva] = useState(false); // Controla si se muestran resultados de búsqueda en vez de top automáticos
 
   // Estados para notificaciones y confirmaciones
@@ -1013,16 +1014,31 @@ export default function App() {
         };
       })
       .filter(r => r !== null) // Filtrar los null
-      .sort((a, b) => b.relevancia - a.relevancia)
-      .slice(0, cantidadProductos); // Usar la misma cantidad que las sugerencias automáticas
+      .sort((a, b) => {
+        // Ordenar primero por puntuación de matching (más importante)
+        const diffPuntuacion = b.puntuacionTotal - a.puntuacionTotal;
+        if (Math.abs(diffPuntuacion) > 0.01) {
+          return diffPuntuacion;
+        }
+        // Si tienen puntuación similar, ordenar por relevancia de búsqueda
+        return b.relevancia - a.relevancia;
+      });
 
-    setResultadosBusqueda(resultados);
+    // Guardar el total de resultados encontrados ANTES de aplicar el límite
+    const totalEncontrados = resultados.length;
+    
+    // Aplicar límite de cantidad de productos a mostrar
+    const resultadosLimitados = resultados.slice(0, cantidadProductos);
+
+    setTotalResultadosBusqueda(totalEncontrados);
+    setResultadosBusqueda(resultadosLimitados);
     setBusquedaActiva(true);
   }
 
   function limpiarBusqueda() {
     setBusquedaManual("");
     setResultadosBusqueda([]);
+    setTotalResultadosBusqueda(0);
     setBusquedaActiva(false);
   }
 
@@ -1523,6 +1539,13 @@ export default function App() {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [filasReferencia, filasMatching, indiceActual, columnasReferencia, columnasMatching, cantidadProductos]);
+
+  // Re-ejecutar búsqueda cuando cambie la cantidad de productos a mostrar
+  useEffect(() => {
+    if (busquedaActiva && busquedaManual.trim()) {
+      ejecutarBusquedaManual();
+    }
+  }, [cantidadProductos]);
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');
@@ -2066,7 +2089,7 @@ export default function App() {
                     </h3>
                     <div style={{fontSize: "9px", color: "#64748b", fontStyle: "italic"}}>
                       {busquedaActiva 
-                        ? `📝 "${busquedaManual}" - ${resultadosBusqueda.length} resultado(s)`
+                        ? `📝 "${busquedaManual}" - Mostrando ${resultadosBusqueda.length} de ${totalResultadosBusqueda} resultado(s)`
                         : `💡 Atajos: ${cantidadProductos === 5 ? "1-5" : cantidadProductos === 10 ? "1-9" : "1-9"} = Seleccionar | 0 = No Match | ←→ = Navegar`
                       }
                     </div>
