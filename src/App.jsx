@@ -390,7 +390,7 @@ export default function App() {
   async function editarMarcaReferencia(marcaOriginal, marcaNueva) {
     if (!marcaOriginal || !marcaNueva) return;
     
-    const marcaNuevaTrim = marcaNueva.trim();
+    const marcaNuevaTrim = marcaNueva.trim().toUpperCase();
     if (!marcaNuevaTrim) return;
     
     // Si es la misma marca, no hacer nada
@@ -469,7 +469,7 @@ export default function App() {
   async function editarMarcaProductosFiltrados(marcaOriginal, marcaNueva, terminoBusqueda) {
     if (!marcaOriginal || !marcaNueva) return;
     
-    const marcaNuevaTrim = marcaNueva.trim();
+    const marcaNuevaTrim = marcaNueva.trim().toUpperCase();
     if (!marcaNuevaTrim) return;
     
     // Si es la misma marca, no hacer nada
@@ -1682,9 +1682,27 @@ export default function App() {
         top: 0,
         zIndex: 100
       }}>
-        <h1 style={{...styles.title, margin: 0, fontSize: "18px"}}>
-          🎯 Matching de Productos
-        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <h1 style={{...styles.title, margin: 0, fontSize: "18px"}}>
+            🎯 Matching de Productos
+          </h1>
+          {(() => {
+            const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+            return userSession.nombre ? (
+              <span style={{
+                fontSize: "14px",
+                color: "#64748b",
+                fontWeight: "500",
+                padding: "4px 12px",
+                backgroundColor: "#f1f5f9",
+                borderRadius: "20px",
+                border: "1px solid #e2e8f0"
+              }}>
+                👤 {userSession.nombre}
+              </span>
+            ) : null;
+          })()}
+        </div>
         
         <div style={{ display: "flex", gap: "8px" }}>
           <button
@@ -2206,7 +2224,13 @@ export default function App() {
                         #{idx + 1} {isCurrent && "← Actual"}
                       </div>
                       <div style={{fontSize: "11px", fontWeight: "500", color: "#1e293b", marginBottom: "2px", lineHeight: "1.3"}}>
-                        {producto[columnasReferencia.DESCRIPCION]?.substring(0, 35)}...
+                        {(() => {
+                          const descripcion = producto[columnasReferencia.DESCRIPCION] || '';
+                          const maxLength = 35;
+                          return descripcion.length > maxLength 
+                            ? descripcion.substring(0, maxLength) + '...'
+                            : descripcion;
+                        })()}
                       </div>
                       {isProcessed && (
                         <div style={{
