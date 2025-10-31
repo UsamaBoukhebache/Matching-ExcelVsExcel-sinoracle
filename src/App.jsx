@@ -1459,11 +1459,11 @@ export default function App() {
       setTimeout(() => {
         if (!listaMatchesRef.current) return;
         
-        // Buscar el elemento actual en la lista
-        const elementos = listaMatchesRef.current.children;
-        if (elementos && elementos[indiceActual]) {
+        // Buscar el elemento con el data-idx correcto (funciona con filtros)
+        const elementoActual = listaMatchesRef.current.querySelector(`[data-idx="${indiceActual}"]`);
+        if (elementoActual) {
           // Usar scrollIntoView con opciones personalizadas
-          elementos[indiceActual].scrollIntoView({
+          elementoActual.scrollIntoView({
             behavior: 'smooth',
             block: 'center', // Centrar verticalmente
             inline: 'nearest'
@@ -1473,7 +1473,7 @@ export default function App() {
         setDebeHacerScroll(false);
       }, 50);
     }
-  }, [indiceActual, filasReferencia.length, debeHacerScroll]);
+  }, [indiceActual, filasReferencia.length, debeHacerScroll, filtroMatches]);
 
   useEffect(() => {
     setComentarioNoMatch("");
@@ -2008,6 +2008,7 @@ export default function App() {
                   return (
                     <div
                       key={idx}
+                      data-idx={idx}
                       onClick={() => setIndiceActual(idx)}
                       style={{
                         padding: "8px",
