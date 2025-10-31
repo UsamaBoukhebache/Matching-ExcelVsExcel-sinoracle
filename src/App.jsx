@@ -339,6 +339,9 @@ export default function App() {
   
   // Estado para filtro de la lista de matches
   const [filtroMatches, setFiltroMatches] = useState('todos'); // 'todos', 'matcheados', 'no-matcheados'
+  
+  // Estado para búsqueda en la lista de matches
+  const [busquedaLista, setBusquedaLista] = useState('');
 
   // Estados para notificaciones y confirmaciones
   const [notificacion, setNotificacion] = useState(null);
@@ -1951,6 +1954,39 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Buscador en la lista */}
+              <div style={{marginBottom: "12px"}}>
+                <input
+                  type="text"
+                  value={busquedaLista}
+                  onChange={(e) => setBusquedaLista(e.target.value)}
+                  placeholder="🔍 Buscar en la lista..."
+                  style={{
+                    width: "100%",
+                    padding: "6px 10px",
+                    fontSize: "12px",
+                    border: busquedaLista ? "2px solid #3b82f6" : "1px solid #e2e8f0",
+                    borderRadius: "4px",
+                    outline: "none",
+                    transition: "all 0.2s ease"
+                  }}
+                  onFocus={(e) => {
+                    if (!busquedaLista) {
+                      e.target.style.borderColor = "#3b82f6";
+                      e.target.style.boxShadow = "0 0 0 2px rgba(59, 130, 246, 0.1)";
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!busquedaLista) {
+                      setTimeout(() => {
+                        e.target.style.borderColor = "#e2e8f0";
+                        e.target.style.boxShadow = "none";
+                      }, 200);
+                    }
+                  }}
+                />
+              </div>
+
               <button
                 onClick={exportarExcelMatcheado}
                 disabled={contadorMatches + contadorNoMatches === 0}
@@ -1990,17 +2026,48 @@ export default function App() {
                   padding: "8px",
                   scrollBehavior: "smooth"
                 }}>
-                {filasReferencia
-                  .map((producto, idx) => ({producto, idx}))
-                  .filter(({idx}) => {
-                    if (filtroMatches === 'todos') return true;
-                    const match = matchesSeleccionados.get(idx);
-                    const isProcessed = match !== undefined;
-                    if (filtroMatches === 'matcheados') return isProcessed;
-                    if (filtroMatches === 'no-matcheados') return !isProcessed;
-                    return true;
-                  })
-                  .map(({producto, idx}) => {
+                {(() => {
+                  const productosFiltrados = filasReferencia
+                    .map((producto, idx) => ({producto, idx}))
+                    .filter(({producto, idx}) => {
+                      // Filtro por estado (todos/matcheados/no-matcheados)
+                      if (filtroMatches !== 'todos') {
+                        const match = matchesSeleccionados.get(idx);
+                        const isProcessed = match !== undefined;
+                        if (filtroMatches === 'matcheados' && !isProcessed) return false;
+                        if (filtroMatches === 'no-matcheados' && isProcessed) return false;
+                      }
+                      
+                      // Filtro por búsqueda en descripción
+                      if (busquedaLista.trim()) {
+                        const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
+                        const terminoBusqueda = busquedaLista.trim().toLowerCase();
+                        if (!descripcion.includes(terminoBusqueda)) return false;
+                      }
+                      
+                      return true;
+                    });
+                  
+                  const totalCoincidencias = productosFiltrados.length;
+                  
+                  return (
+                    <>
+                      {busquedaLista.trim() && (
+                        <div style={{
+                          padding: "8px",
+                          marginBottom: "8px",
+                          backgroundColor: "#eff6ff",
+                          border: "1px solid #3b82f6",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          color: "#1e40af",
+                          textAlign: "center"
+                        }}>
+                          📊 {totalCoincidencias} coincidencia{totalCoincidencias !== 1 ? 's' : ''} encontrada{totalCoincidencias !== 1 ? 's' : ''}
+                        </div>
+                      )}
+                      {productosFiltrados.map(({producto, idx}) => {
                   const match = matchesSeleccionados.get(idx);
                   const isProcessed = match !== undefined;
                   const isCurrent = idx === indiceActual;
@@ -2050,7 +2117,10 @@ export default function App() {
                       )}
                     </div>
                   );
-                })}
+                      })}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
