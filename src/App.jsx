@@ -336,6 +336,9 @@ export default function App() {
   
   // Estado para controlar cuándo hacer scroll automático
   const [debeHacerScroll, setDebeHacerScroll] = useState(false);
+  
+  // Estado para filtro de la lista de matches
+  const [filtroMatches, setFiltroMatches] = useState('todos'); // 'todos', 'matcheados', 'no-matcheados'
 
   // Estados para notificaciones y confirmaciones
   const [notificacion, setNotificacion] = useState(null);
@@ -1912,9 +1915,28 @@ export default function App() {
               overflow: "hidden"
             }}>
               <div style={{marginBottom: "12px"}}>
-                <h2 style={{margin: 0, fontSize: "15px", color: "#1e293b"}}>
-                  📋 Matches
-                </h2>
+                <div style={{display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px"}}>
+                  <h2 style={{margin: 0, fontSize: "15px", color: "#1e293b"}}>
+                    📋 Matches
+                  </h2>
+                  <select 
+                    value={filtroMatches}
+                    onChange={(e) => setFiltroMatches(e.target.value)}
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "12px",
+                      borderRadius: "4px",
+                      border: "1px solid #d1d5db",
+                      backgroundColor: "white",
+                      cursor: "pointer",
+                      color: "#1e293b"
+                    }}
+                  >
+                    <option value="todos">Todos ({filasReferencia.length})</option>
+                    <option value="matcheados">Matcheados ({contadorMatches + contadorNoMatches})</option>
+                    <option value="no-matcheados">No Matcheados ({filasReferencia.length - (contadorMatches + contadorNoMatches)})</option>
+                  </select>
+                </div>
                 <div style={{
                   display: "flex", 
                   gap: "8px", 
@@ -1968,7 +1990,17 @@ export default function App() {
                   padding: "8px",
                   scrollBehavior: "smooth"
                 }}>
-                {filasReferencia.map((producto, idx) => {
+                {filasReferencia
+                  .map((producto, idx) => ({producto, idx}))
+                  .filter(({idx}) => {
+                    if (filtroMatches === 'todos') return true;
+                    const match = matchesSeleccionados.get(idx);
+                    const isProcessed = match !== undefined;
+                    if (filtroMatches === 'matcheados') return isProcessed;
+                    if (filtroMatches === 'no-matcheados') return !isProcessed;
+                    return true;
+                  })
+                  .map(({producto, idx}) => {
                   const match = matchesSeleccionados.get(idx);
                   const isProcessed = match !== undefined;
                   const isCurrent = idx === indiceActual;
