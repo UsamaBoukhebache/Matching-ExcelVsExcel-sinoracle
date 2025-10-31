@@ -966,22 +966,19 @@ export default function App() {
     // Solo convertir a minúsculas para que sea case-insensitive
     const terminoBusqueda = busquedaManual.trim().toLowerCase();
     
-    // Buscar coincidencias literales en descripción, marca, CODIPROD
+    console.log('🔍 BUSCANDO:', terminoBusqueda);
+    console.log('📊 Total productos en filasMatching:', filasMatching.length);
+    
+    // Buscar coincidencias literales SOLO en descripción y marca
     const resultados = filasMatching
       .map((producto, idx) => {
         const descripcion = (producto[columnasMatching.DESCRIPCION] || "").toString().toLowerCase();
         const marca = (producto[columnasMatching.MARCA] || "").toString().toLowerCase();
-        const codiprod = (producto[columnasMatching.CODIPROD] || "").toString().toLowerCase();
         
         // Calcular relevancia solo con coincidencias LITERALES
         let relevancia = 0;
         
-        // Coincidencia literal en CODIPROD
-        if (codiprod.includes(terminoBusqueda)) {
-          relevancia += 100;
-        }
-        
-        // Coincidencia literal en marca
+        // Coincidencia literal en marca (mayor prioridad)
         if (marca.includes(terminoBusqueda)) {
           relevancia += 50;
         }
@@ -1020,6 +1017,15 @@ export default function App() {
 
     // Guardar el total de resultados encontrados ANTES de aplicar el límite
     const totalEncontrados = resultados.length;
+    
+    console.log('✅ Resultados encontrados:', totalEncontrados);
+    if (totalEncontrados > 0) {
+      console.log('📝 Primeros 3 resultados:', resultados.slice(0, 3).map(r => ({
+        descripcion: r.producto[columnasMatching.DESCRIPCION]?.substring(0, 50),
+        marca: r.producto[columnasMatching.MARCA],
+        relevancia: r.relevancia
+      })));
+    }
     
     // Aplicar límite de cantidad de productos a mostrar
     const resultadosLimitados = resultados.slice(0, cantidadProductos);
