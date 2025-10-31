@@ -327,13 +327,15 @@ export default function App() {
   const [sesionActiva, setSesionActiva] = useState(null); // ID de sesión activa
   const [sesionesDisponibles, setSesionesDisponibles] = useState([]); // Lista de sesiones del usuario
   const [mostrarSelectorSesiones, setMostrarSelectorSesiones] = useState(false);
-  const [ultimoMatchHecho, setUltimoMatchHecho] = useState(null); // Índice del último match para scroll
   
   // Estados para buscador manual
   const [busquedaManual, setBusquedaManual] = useState("");
   const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const [totalResultadosBusqueda, setTotalResultadosBusqueda] = useState(0); // Total de resultados encontrados (antes de aplicar límite)
   const [busquedaActiva, setBusquedaActiva] = useState(false); // Controla si se muestran resultados de búsqueda en vez de top automáticos
+  
+  // Estado para controlar cuándo hacer scroll automático
+  const [debeHacerScroll, setDebeHacerScroll] = useState(false);
 
   // Estados para notificaciones y confirmaciones
   const [notificacion, setNotificacion] = useState(null);
@@ -693,7 +695,6 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
-    setUltimoMatchHecho(indiceActual); // 🎯 Marcar último match para scroll
     
     // Guardar en BD
     await guardarMatchEnBD(indiceActual, {
@@ -708,9 +709,8 @@ export default function App() {
     setSeleccionMultiple(new Set());
     
     if (indiceActual < filasReferencia.length - 1) {
-      setTimeout(() => {
-        setIndiceActual(prev => prev + 1);
-      }, 300);
+      setDebeHacerScroll(true);
+      setIndiceActual(prev => prev + 1);
     }
   }
 
@@ -758,7 +758,6 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
-    setUltimoMatchHecho(indiceActual); // 🎯 Marcar último match para scroll
     
     // Guardar en BD
     await guardarMatchEnBD(indiceActual, {
@@ -773,9 +772,8 @@ export default function App() {
     setSeleccionMultiple(new Set());
     
     if (indiceActual < filasReferencia.length - 1) {
-      setTimeout(() => {
-        setIndiceActual(prev => prev + 1);
-      }, 300);
+      setDebeHacerScroll(true);
+      setIndiceActual(prev => prev + 1);
     }
   }
 
@@ -798,7 +796,6 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
-    setUltimoMatchHecho(indiceActual); // 🎯 Marcar último match para scroll
     
     // Guardar en BD
     await guardarMatchEnBD(indiceActual, {
@@ -812,9 +809,8 @@ export default function App() {
     setComentarioNoMatch("");
     
     if (indiceActual < filasReferencia.length - 1) {
-      setTimeout(() => {
-        setIndiceActual(prev => prev + 1);
-      }, 300);
+      setDebeHacerScroll(true);
+      setIndiceActual(prev => prev + 1);
     }
   }
 
@@ -840,7 +836,6 @@ export default function App() {
     }
     
     setMatchesSeleccionados(nuevosMatches);
-    setUltimoMatchHecho(indiceActual); // 🎯 Marcar último match para scroll
     
     // Guardar en BD
     await guardarMatchEnBD(indiceActual, {
@@ -854,9 +849,8 @@ export default function App() {
     setComentarioNoMatch("");
     
     if (indiceActual < filasReferencia.length - 1) {
-      setTimeout(() => {
-        setIndiceActual(prev => prev + 1);
-      }, 300);
+      setDebeHacerScroll(true);
+      setIndiceActual(prev => prev + 1);
     }
   }
 
@@ -1449,20 +1443,28 @@ export default function App() {
     }
   }, [isAuthenticated, matchesSeleccionados, indiceActual, contadorMatches, contadorNoMatches]);
 
-  // Scroll automático al último match hecho (para poder corregir fácilmente)
+  // Scroll automático para posicionar el producto actual en la tabla de la izquierda
   useEffect(() => {
-    if (listaMatchesRef.current && filasReferencia.length > 0 && ultimoMatchHecho !== null) {
-      const itemHeight = 60;
-      const scrollPosition = ultimoMatchHecho * itemHeight;
-      const containerHeight = listaMatchesRef.current.clientHeight;
-      const targetScroll = scrollPosition - containerHeight / 2 + itemHeight / 2;
-      
-      listaMatchesRef.current.scrollTo({
-        top: Math.max(0, targetScroll),
-        behavior: 'smooth'
-      });
+    if (debeHacerScroll && listaMatchesRef.current && filasReferencia.length > 0 && indiceActual !== null) {
+      // Usar un timeout breve para asegurar que el DOM se ha actualizado
+      setTimeout(() => {
+        if (!listaMatchesRef.current) return;
+        
+        // Buscar el elemento actual en la lista
+        const elementos = listaMatchesRef.current.children;
+        if (elementos && elementos[indiceActual]) {
+          // Usar scrollIntoView con opciones personalizadas
+          elementos[indiceActual].scrollIntoView({
+            behavior: 'smooth',
+            block: 'center', // Centrar verticalmente
+            inline: 'nearest'
+          });
+        }
+        
+        setDebeHacerScroll(false);
+      }, 50);
     }
-  }, [ultimoMatchHecho, filasReferencia.length]);
+  }, [indiceActual, filasReferencia.length, debeHacerScroll]);
 
   useEffect(() => {
     setComentarioNoMatch("");
