@@ -464,13 +464,76 @@ export default function App() {
   }
 
   /**
+   * Editar marca SOLO de productos filtrados por búsqueda
+   */
+  async function editarMarcaProductosFiltrados(marcaOriginal, marcaNueva, terminoBusqueda) {
+    if (!marcaOriginal || !marcaNueva) return;
+    
+    const marcaNuevaTrim = marcaNueva.trim();
+    if (!marcaNuevaTrim) return;
+    
+    // Si es la misma marca, no hacer nada
+    if (marcaOriginal === marcaNuevaTrim) {
+      setEditandoMarca(null);
+      return;
+    }
+    
+    // Obtener los productos que coinciden con la búsqueda
+    const productosFiltrados = filasReferencia.filter((producto) => {
+      const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
+      return descripcion.includes(terminoBusqueda.toLowerCase());
+    });
+    
+    const confirmacion = await mostrarConfirmacion(
+      `¿Cambiar la marca de "${marcaOriginal}" a "${marcaNuevaTrim}" SOLO para los ${productosFiltrados.length} productos que contienen "${terminoBusqueda}" en su descripción?\n\n` +
+      `Esto NO afectará a otros productos con la misma marca que no coincidan con la búsqueda.`,
+      '✏️ Editar marca de productos filtrados'
+    );
+    
+    if (!confirmacion) {
+      setEditandoMarca(null);
+      return;
+    }
+    
+    // Aplicar el cambio SOLO a los productos filtrados
+    const filasActualizadas = filasReferencia.map(fila => {
+      const descripcion = (fila[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
+      const cumpleFiltro = descripcion.includes(terminoBusqueda.toLowerCase());
+      
+      if (cumpleFiltro && fila[columnasReferencia.MARCA] === marcaOriginal) {
+        return {
+          ...fila,
+          [columnasReferencia.MARCA]: marcaNuevaTrim
+        };
+      }
+      return fila;
+    });
+    
+    setFilasReferencia(filasActualizadas);
+    
+    // Mostrar notificación
+    mostrarNotificacion(
+      `✅ Marca actualizada correctamente\n\n` +
+      `"${marcaOriginal}" → "${marcaNuevaTrim}"\n` +
+      `${productosFiltrados.length} productos actualizados (solo los filtrados)`,
+      'success',
+      5000
+    );
+    
+    // Cerrar modal de edición
+    setEditandoMarca(null);
+  }
+
+  /**
    * Abrir modal de edición de marca
    */
-  function abrirEdicionMarca(marcaOriginal) {
+  function abrirEdicionMarca(marcaOriginal, esFiltrado = false, terminoBusqueda = '') {
     const marcaActual = marcasEditadas.get(marcaOriginal) || marcaOriginal;
     setEditandoMarca({
       marcaOriginal,
-      marcaNueva: marcaActual
+      marcaNueva: marcaActual,
+      esFiltrado,
+      terminoBusqueda
     });
   }
 
@@ -1985,6 +2048,48 @@ export default function App() {
                     }
                   }}
                 />
+                
+                {/* Botón para editar marca de productos filtrados */}
+                {busquedaLista.trim() && (() => {
+                  // Obtener productos filtrados con la búsqueda actual
+                  const productosFiltrados = filasReferencia.filter((producto) => {
+                    const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
+                    const terminoBusqueda = busquedaLista.trim().toLowerCase();
+                    return descripcion.includes(terminoBusqueda);
+                  });
+                  
+                  // Verificar si todos tienen la misma marca
+                  if (productosFiltrados.length > 0) {
+                    const marcas = [...new Set(productosFiltrados.map(p => p[columnasReferencia.MARCA]))];
+                    if (marcas.length === 1 && marcas[0]) {
+                      const marcaComun = marcas[0];
+                      return (
+                        <button
+                          onClick={() => abrirEdicionMarca(marcaComun, true, busquedaLista.trim())}
+                          style={{
+                            width: "100%",
+                            marginTop: "6px",
+                            padding: "6px 10px",
+                            fontSize: "11px",
+                            fontWeight: "600",
+                            backgroundColor: "#8b5cf6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease"
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = "#7c3aed"}
+                          onMouseOut={(e) => e.target.style.backgroundColor = "#8b5cf6"}
+                          title={`Editar marca "${marcaComun}" SOLO para los ${productosFiltrados.length} producto(s) filtrado(s)`}
+                        >
+                          ✏️ Editar marca "{marcaComun}" ({productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''})
+                        </button>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
               </div>
 
               <button
@@ -2634,9 +2739,14 @@ export default function App() {
             width: "90%",
             boxShadow: "0 10px 40px rgba(0, 0, 0, 0.3)"
           }}>
-            <h3 style={{ marginTop: 0, color: "#1e293b" }}>✏️ Editar Marca de tu Producto</h3>
+            <h3 style={{ marginTop: 0, color: "#1e293b" }}>
+              {editandoMarca.esFiltrado ? '✏️ Editar Marca de Productos Filtrados' : '✏️ Editar Marca de tu Producto'}
+            </h3>
             <p style={{ color: "#64748b", fontSize: "14px" }}>
-              Cambiará <b>todas las ocurrencias</b> de esta marca en TU archivo de entrada (referencia).
+              {editandoMarca.esFiltrado 
+                ? <>Cambiará la marca <b>solo de los productos filtrados</b> que contienen "{editandoMarca.terminoBusqueda}" en su descripción.</>
+                : <>Cambiará <b>todas las ocurrencias</b> de esta marca en TU archivo de entrada (referencia).</>
+              }
             </p>
             
             <div style={{ marginBottom: "16px" }}>
@@ -2679,7 +2789,11 @@ export default function App() {
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    editarMarcaReferencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva);
+                    if (editandoMarca.esFiltrado) {
+                      editarMarcaProductosFiltrados(editandoMarca.marcaOriginal, editandoMarca.marcaNueva, editandoMarca.terminoBusqueda);
+                    } else {
+                      editarMarcaReferencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva);
+                    }
                   } else if (e.key === 'Escape') {
                     setEditandoMarca(null);
                   }
@@ -2704,12 +2818,18 @@ export default function App() {
                 Cancelar
               </button>
               <button
-                onClick={() => editarMarcaReferencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva)}
+                onClick={() => {
+                  if (editandoMarca.esFiltrado) {
+                    editarMarcaProductosFiltrados(editandoMarca.marcaOriginal, editandoMarca.marcaNueva, editandoMarca.terminoBusqueda);
+                  } else {
+                    editarMarcaReferencia(editandoMarca.marcaOriginal, editandoMarca.marcaNueva);
+                  }
+                }}
                 style={{
                   padding: "10px 20px",
                   fontSize: "14px",
                   fontWeight: "600",
-                  background: "#3b82f6",
+                  background: editandoMarca.esFiltrado ? "#8b5cf6" : "#3b82f6",
                   color: "white",
                   border: "none",
                   borderRadius: "6px",
