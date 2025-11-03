@@ -1634,31 +1634,6 @@ export default function App() {
     setIsAuthenticated(false);
   };
 
-  const handleClearSession = async () => {
-    const confirmClear = await mostrarConfirmacion(
-      "¿Seguro que quieres reiniciar el proceso? Se perderá todo el progreso actual.",
-      "🔄 Reiniciar sesión"
-    );
-    if (confirmClear) {
-      localStorage.removeItem('matchesSeleccionados');
-      localStorage.removeItem('filasReferencia');
-      localStorage.removeItem('filasMatching');
-      localStorage.removeItem('columnasReferencia');
-      localStorage.removeItem('columnasMatching');
-      localStorage.removeItem('indiceActual');
-      localStorage.removeItem('contadorMatches');
-      localStorage.removeItem('contadorNoMatches');
-      setFilasReferencia([]);
-      setFilasMatching([]);
-      setColumnasReferencia(null);
-      setColumnasMatching(null);
-      setIndiceActual(0);
-      setMatchesSeleccionados(new Map());
-      setContadorMatches(0);
-      setContadorNoMatches(0);
-    }
-  };
-
   if (isLoading) {
     return <div style={{ textAlign: 'center', marginTop: '20%' }}>Cargando...</div>;
   }
@@ -1793,22 +1768,6 @@ export default function App() {
             }}
           >
             🔒 Cerrar
-          </button>
-          <button
-            onClick={handleClearSession}
-            style={{
-              background: "#ffc107",
-              color: "#212529",
-              border: "none",
-              padding: "6px 12px",
-              borderRadius: "5px",
-              fontSize: "13px",
-              fontWeight: "bold",
-              cursor: "pointer",
-              transition: "all 0.2s ease"
-            }}
-          >
-            🔄 Reiniciar
           </button>
         </div>
       </div>
