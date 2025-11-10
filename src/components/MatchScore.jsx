@@ -1,4 +1,16 @@
+import { useState } from 'react';
+
 export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo, onCheckboxChange, isChecked, haySeleccionMultiple, marcaReferencia }) {
+  const [copiado, setCopiado] = useState(null);
+
+  const copiarAlPortapapeles = (e, texto, campo) => {
+    e.stopPropagation(); // Evitar que se seleccione el producto
+    navigator.clipboard.writeText(texto).then(() => {
+      setCopiado(campo);
+      setTimeout(() => setCopiado(null), 1500);
+    });
+  };
+
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
     if (onCheckboxChange) {
@@ -112,14 +124,87 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
       <div style={{display: "flex", paddingLeft: onCheckboxChange ? "84px" : "30px", gap: "8px", alignItems: "flex-start"}}>
         {/* Información del producto */}
         <div style={{flex: 1, minWidth: 0}}>
-          <div style={{fontSize: "11px", fontWeight: "bold", color: "#1e293b", marginBottom: "3px", lineHeight: "1.2"}}>
-            {match.producto[columnasMatching.DESCRIPCION]}
+          <div style={{fontSize: "11px", fontWeight: "bold", color: "#1e293b", marginBottom: "3px", lineHeight: "1.2", display: "flex", alignItems: "center", gap: "4px"}}>
+            <span style={{flex: 1}}>{match.producto[columnasMatching.DESCRIPCION]}</span>
+            <button
+              onClick={(e) => copiarAlPortapapeles(e, match.producto[columnasMatching.DESCRIPCION], 'descripcion')}
+              style={{
+                padding: "2px 4px",
+                fontSize: "8px",
+                backgroundColor: copiado === 'descripcion' ? "#22c55e" : "#e2e8f0",
+                color: copiado === 'descripcion' ? "white" : "#64748b",
+                border: "none",
+                borderRadius: "3px",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                flexShrink: 0
+              }}
+              title="Copiar Descripción"
+            >
+              {copiado === 'descripcion' ? '✓' : '📋'}
+            </button>
           </div>
           <div style={{fontSize: "9px", color: "#64748b", lineHeight: "1.3"}}>
-            <div><b>CODIPROD:</b> {match.producto[columnasMatching.CODIPROD]}</div>
-            <div>
-              <b>EAN:</b> {match.producto[columnasMatching.EAN] || "—"} | 
-              <b> AECOC:</b> {match.producto[columnasMatching.AECOC] || "—"}
+            <div style={{display: "flex", alignItems: "center", gap: "4px"}}>
+              <span><b>CODIPROD:</b> {match.producto[columnasMatching.CODIPROD]}</span>
+              <button
+                onClick={(e) => copiarAlPortapapeles(e, match.producto[columnasMatching.CODIPROD], 'codiprod')}
+                style={{
+                  padding: "2px 4px",
+                  fontSize: "8px",
+                  backgroundColor: copiado === 'codiprod' ? "#22c55e" : "#e2e8f0",
+                  color: copiado === 'codiprod' ? "white" : "#64748b",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+                title="Copiar CODIPROD"
+              >
+                {copiado === 'codiprod' ? '✓' : '📋'}
+              </button>
+            </div>
+            <div style={{display: "flex", alignItems: "center", gap: "4px"}}>
+              <span>
+                <b>EAN:</b> {match.producto[columnasMatching.EAN] || "—"}
+              </span>
+              {match.producto[columnasMatching.EAN] && (
+                <button
+                  onClick={(e) => copiarAlPortapapeles(e, match.producto[columnasMatching.EAN], 'ean')}
+                  style={{
+                    padding: "2px 4px",
+                    fontSize: "8px",
+                    backgroundColor: copiado === 'ean' ? "#22c55e" : "#e2e8f0",
+                    color: copiado === 'ean' ? "white" : "#64748b",
+                    border: "none",
+                    borderRadius: "3px",
+                    cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}
+                  title="Copiar EAN"
+                >
+                  {copiado === 'ean' ? '✓' : '📋'}
+                </button>
+              )}
+              <span> | <b> AECOC:</b> {match.producto[columnasMatching.AECOC] || "—"}</span>
+              {match.producto[columnasMatching.AECOC] && (
+                <button
+                  onClick={(e) => copiarAlPortapapeles(e, match.producto[columnasMatching.AECOC], 'aecoc')}
+                  style={{
+                    padding: "2px 4px",
+                    fontSize: "8px",
+                    backgroundColor: copiado === 'aecoc' ? "#22c55e" : "#e2e8f0",
+                    color: copiado === 'aecoc' ? "white" : "#64748b",
+                    border: "none",
+                    borderRadius: "3px",
+                    cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}
+                  title="Copiar AECOC"
+                >
+                  {copiado === 'aecoc' ? '✓' : '📋'}
+                </button>
+              )}
             </div>
             <div>
               <b>Marca:</b> {match.producto[columnasMatching.MARCA] || "—"} | 
