@@ -1038,16 +1038,22 @@ export default function App() {
     console.log('🔍 BUSCANDO:', terminoBusqueda);
     console.log('📊 Total productos en filasMatching:', filasMatching.length);
     
-    // Buscar coincidencias literales SOLO en descripción y marca
+    // Buscar coincidencias literales en descripción, marca y CODIPROD
     const resultados = filasMatching
       .map((producto, idx) => {
         const descripcion = (producto[columnasMatching.DESCRIPCION] || "").toString().toLowerCase();
         const marca = (producto[columnasMatching.MARCA] || "").toString().toLowerCase();
+        const codiprod = (producto[columnasMatching.CODIPROD] || "").toString().toLowerCase();
         
         // Calcular relevancia solo con coincidencias LITERALES
         let relevancia = 0;
         
-        // Coincidencia literal en marca (mayor prioridad)
+        // Coincidencia literal en CODIPROD (máxima prioridad)
+        if (codiprod.includes(terminoBusqueda)) {
+          relevancia += 100;
+        }
+        
+        // Coincidencia literal en marca
         if (marca.includes(terminoBusqueda)) {
           relevancia += 50;
         }
