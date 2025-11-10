@@ -2037,8 +2037,9 @@ export default function App() {
                   // Obtener productos filtrados con la búsqueda actual
                   const productosFiltrados = filasReferencia.filter((producto) => {
                     const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
+                    const marca = (producto[columnasReferencia.MARCA] || "").toString().toLowerCase();
                     const terminoBusqueda = busquedaLista.trim().toLowerCase();
-                    return descripcion.includes(terminoBusqueda);
+                    return descripcion.includes(terminoBusqueda) || marca.includes(terminoBusqueda);
                   });
                   
                   // Verificar si todos tienen la misma marca
@@ -2126,11 +2127,12 @@ export default function App() {
                         if (filtroMatches === 'no-matcheados' && isProcessed) return false;
                       }
                       
-                      // Filtro por búsqueda en descripción
+                      // Filtro por búsqueda en descripción y marca
                       if (busquedaLista.trim()) {
                         const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
+                        const marca = (producto[columnasReferencia.MARCA] || "").toString().toLowerCase();
                         const terminoBusqueda = busquedaLista.trim().toLowerCase();
-                        if (!descripcion.includes(terminoBusqueda)) return false;
+                        if (!descripcion.includes(terminoBusqueda) && !marca.includes(terminoBusqueda)) return false;
                       }
                       
                       return true;
