@@ -123,9 +123,9 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
       {/* Contenido principal con puntuación integrada */}
       <div style={{display: "flex", paddingLeft: onCheckboxChange ? "84px" : "30px", gap: "8px", alignItems: "flex-start"}}>
         {/* Información del producto */}
-        <div style={{flex: 1, minWidth: 0}}>
-          <div style={{fontSize: "11px", fontWeight: "bold", color: "#1e293b", marginBottom: "3px", lineHeight: "1.2", display: "flex", alignItems: "center", gap: "4px"}}>
-            <span style={{flex: 1}}>{match.producto[columnasMatching.DESCRIPCION]}</span>
+        <div style={{flex: 1, minWidth: 0, overflow: "visible"}}>
+          <div style={{fontSize: "11px", fontWeight: "bold", color: "#1e293b", marginBottom: "3px", lineHeight: "1.2", display: "flex", alignItems: "flex-start", gap: "4px", width: "100%"}}>
+            <span style={{flex: "0 1 auto", wordBreak: "break-word", overflow: "hidden"}}>{match.producto[columnasMatching.DESCRIPCION]}</span>
             <button
               onClick={(e) => copiarAlPortapapeles(e, match.producto[columnasMatching.DESCRIPCION], 'descripcion')}
               style={{
@@ -137,7 +137,8 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
                 borderRadius: "3px",
                 cursor: "pointer",
                 transition: "all 0.2s",
-                flexShrink: 0
+                flexShrink: 0,
+                minWidth: "20px"
               }}
               title="Copiar Descripción"
             >
