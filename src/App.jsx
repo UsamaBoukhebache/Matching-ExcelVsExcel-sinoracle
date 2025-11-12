@@ -2033,7 +2033,7 @@ export default function App() {
                 />
                 
                 {/* Botón para editar marca de productos filtrados */}
-                {busquedaLista.trim() && (() => {
+                {busquedaLista && busquedaLista.trim() && (() => {
                   // Obtener productos filtrados con la búsqueda actual
                   const productosFiltrados = filasReferencia.filter((producto) => {
                     const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
@@ -2128,7 +2128,7 @@ export default function App() {
                       }
                       
                       // Filtro por búsqueda en descripción y marca
-                      if (busquedaLista.trim()) {
+                      if (busquedaLista && busquedaLista.trim()) {
                         const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
                         const marca = (producto[columnasReferencia.MARCA] || "").toString().toLowerCase();
                         const terminoBusqueda = busquedaLista.trim().toLowerCase();
@@ -2142,7 +2142,7 @@ export default function App() {
                   
                   return (
                     <>
-                      {busquedaLista.trim() && (
+                      {busquedaLista && busquedaLista.trim() && (
                         <div style={{
                           padding: "8px",
                           marginBottom: "8px",

@@ -102,7 +102,15 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
           position: "absolute",
           top: "8px",
           left: onCheckboxChange ? "60px" : "8px",
-          backgroundColor: isSelected ? "#22c55e" : (marcaReferencia && match.producto[columnasMatching.MARCA] && marcaReferencia.toLowerCase() === match.producto[columnasMatching.MARCA].toLowerCase() ? "#22c55e" : "#dc2626"),
+          backgroundColor: isSelected ? "#22c55e" : (
+            marcaReferencia && 
+            match.producto[columnasMatching.MARCA] && 
+            typeof marcaReferencia === 'string' && 
+            typeof match.producto[columnasMatching.MARCA] === 'string' &&
+            marcaReferencia.toLowerCase() === match.producto[columnasMatching.MARCA].toLowerCase() 
+              ? "#22c55e" 
+              : "#dc2626"
+          ),
           color: "white",
           padding: "1px 5px",
           borderRadius: "50%",
