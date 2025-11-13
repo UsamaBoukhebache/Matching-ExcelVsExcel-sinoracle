@@ -60,6 +60,14 @@ function normalizarDescripcion(raw) {
     .replace(/\s+/g, " ");
 }
 
+/** Quita acentos/tildes para búsquedas */
+function quitarAcentos(texto) {
+  if (!texto) return "";
+  return String(texto)
+    .toLowerCase()
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
 /** Normaliza unidad de medida */
 function normalizarUnidadMedida(raw) {
   if (!raw) return "";
@@ -1031,8 +1039,8 @@ export default function App() {
       return;
     }
 
-    // Dividir el término de búsqueda en palabras individuales
-    const terminoBusqueda = busquedaManual.trim().toLowerCase();
+    // Dividir el término de búsqueda en palabras individuales y quitar acentos
+    const terminoBusqueda = quitarAcentos(busquedaManual.trim());
     const palabrasBusqueda = terminoBusqueda.split(/\s+/); // Divide por espacios
     
     console.log('🔍 BUSCANDO:', terminoBusqueda);
@@ -1042,9 +1050,10 @@ export default function App() {
     // Buscar coincidencias en descripción, marca y CODIPROD
     const resultados = filasMatching
       .map((producto, idx) => {
-        const descripcion = (producto[columnasMatching.DESCRIPCION] || "").toString().toLowerCase();
-        const marca = (producto[columnasMatching.MARCA] || "").toString().toLowerCase();
-        const codiprod = (producto[columnasMatching.CODIPROD] || "").toString().toLowerCase();
+        // Quitar acentos de los campos para comparar
+        const descripcion = quitarAcentos(producto[columnasMatching.DESCRIPCION] || "");
+        const marca = quitarAcentos(producto[columnasMatching.MARCA] || "");
+        const codiprod = quitarAcentos(producto[columnasMatching.CODIPROD] || "");
         
         // Calcular relevancia
         let relevancia = 0;
@@ -2134,11 +2143,11 @@ export default function App() {
                         if (filtroMatches === 'no-matcheados' && isProcessed) return false;
                       }
                       
-                      // Filtro por búsqueda en descripción y marca
+                      // Filtro por búsqueda en descripción y marca (sin acentos)
                       if (busquedaLista && busquedaLista.trim()) {
-                        const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
-                        const marca = (producto[columnasReferencia.MARCA] || "").toString().toLowerCase();
-                        const terminoBusqueda = busquedaLista.trim().toLowerCase();
+                        const descripcion = quitarAcentos(producto[columnasReferencia.DESCRIPCION] || "");
+                        const marca = quitarAcentos(producto[columnasReferencia.MARCA] || "");
+                        const terminoBusqueda = quitarAcentos(busquedaLista.trim());
                         if (!descripcion.includes(terminoBusqueda) && !marca.includes(terminoBusqueda)) return false;
                       }
                       
