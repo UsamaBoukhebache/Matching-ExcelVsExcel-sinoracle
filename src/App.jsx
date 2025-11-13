@@ -1031,39 +1031,45 @@ export default function App() {
       return;
     }
 
-    // Búsqueda LITERAL (sin normalizar ni tokenizar)
-    // Solo convertir a minúsculas para que sea case-insensitive
+    // Dividir el término de búsqueda en palabras individuales
     const terminoBusqueda = busquedaManual.trim().toLowerCase();
+    const palabrasBusqueda = terminoBusqueda.split(/\s+/); // Divide por espacios
     
     console.log('🔍 BUSCANDO:', terminoBusqueda);
+    console.log('📝 Palabras:', palabrasBusqueda);
     console.log('📊 Total productos en filasMatching:', filasMatching.length);
     
-    // Buscar coincidencias literales en descripción, marca y CODIPROD
+    // Buscar coincidencias en descripción, marca y CODIPROD
     const resultados = filasMatching
       .map((producto, idx) => {
         const descripcion = (producto[columnasMatching.DESCRIPCION] || "").toString().toLowerCase();
         const marca = (producto[columnasMatching.MARCA] || "").toString().toLowerCase();
         const codiprod = (producto[columnasMatching.CODIPROD] || "").toString().toLowerCase();
         
-        // Calcular relevancia solo con coincidencias LITERALES
+        // Calcular relevancia
         let relevancia = 0;
+        let palabrasEncontradas = 0;
         
-        // Coincidencia literal en CODIPROD (máxima prioridad)
+        // Para CODIPROD: búsqueda literal completa (sin separar por palabras)
         if (codiprod.includes(terminoBusqueda)) {
           relevancia += 100;
         }
         
-        // Coincidencia literal en marca
-        if (marca.includes(terminoBusqueda)) {
+        // Para MARCA: verificar si contiene TODAS las palabras
+        const todasPalabrasEnMarca = palabrasBusqueda.every(palabra => marca.includes(palabra));
+        if (todasPalabrasEnMarca) {
           relevancia += 50;
+          palabrasEncontradas = palabrasBusqueda.length;
         }
         
-        // Coincidencia literal en descripción
-        if (descripcion.includes(terminoBusqueda)) {
+        // Para DESCRIPCION: verificar si contiene TODAS las palabras
+        const todasPalabrasEnDescripcion = palabrasBusqueda.every(palabra => descripcion.includes(palabra));
+        if (todasPalabrasEnDescripcion) {
           relevancia += 30;
+          palabrasEncontradas = Math.max(palabrasEncontradas, palabrasBusqueda.length);
         }
         
-        // Si no hay ninguna coincidencia literal, no incluir este producto
+        // Si no hay ninguna coincidencia, no incluir este producto
         if (relevancia === 0) {
           return null;
         }
@@ -1076,6 +1082,7 @@ export default function App() {
           producto,
           indice: idx,
           relevancia,
+          palabrasEncontradas,
           ...puntuacionCompleta
         };
       })
