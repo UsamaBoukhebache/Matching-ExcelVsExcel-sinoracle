@@ -1,3 +1,9 @@
+// Función para quitar acentos y pasar a minúsculas
+const quitarAcentos = (texto) => {
+  if (!texto) return "";
+  return texto.toString().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+};
+
 export function ProductCard({ title, product, columns, onNoMatchMarca, onEditarMarca, marcaFueEditada }) {
   const marca = product[columns.MARCA];
   
@@ -87,7 +93,7 @@ export function ProductCard({ title, product, columns, onNoMatchMarca, onEditarM
       </div>
       
       <div style={{fontSize: "11px", lineHeight: "1.5"}}>
-        <p style={{margin: "2px 0"}}><b>DESCRIPCION:</b> {product[columns.DESCRIPCION]}</p>
+        <p style={{margin: "2px 0"}}><b>DESCRIPCION:</b> {quitarAcentos(product[columns.DESCRIPCION])}</p>
         <p style={{margin: "2px 0"}}><b>CODIPROD:</b> {product[columns.CODIPROD]} | <b>EAN:</b> {product[columns.EAN]} | <b>AECOC:</b> {product[columns.AECOC]}</p>
         <p style={{margin: "2px 0"}}>
           <b>Marca:</b> <span style={{
@@ -96,7 +102,7 @@ export function ProductCard({ title, product, columns, onNoMatchMarca, onEditarM
             borderRadius: "4px",
             fontWeight: "bold",
             color: "#92400e"
-          }}>{marca || "—"}</span>
+          }}>{quitarAcentos(marca || "—")}</span>
           {marcaFueEditada && marcaFueEditada(marca) && (
             <span style={{
               marginLeft: "6px",

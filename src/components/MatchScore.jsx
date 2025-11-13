@@ -1,11 +1,18 @@
 import { useState } from 'react';
 
+// Función para quitar acentos y pasar a minúsculas
+const quitarAcentos = (texto) => {
+  if (!texto) return "";
+  return texto.toString().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+};
+
 export function MatchScore({ match, columnasMatching, onSelect, isSelected, numeroAtajo, onCheckboxChange, isChecked, haySeleccionMultiple, marcaReferencia }) {
   const [copiado, setCopiado] = useState(null);
 
   const copiarAlPortapapeles = (e, texto, campo) => {
     e.stopPropagation(); // Evitar que se seleccione el producto
-    navigator.clipboard.writeText(texto).then(() => {
+    const textoSinTildes = quitarAcentos(texto);
+    navigator.clipboard.writeText(textoSinTildes).then(() => {
       setCopiado(campo);
       setTimeout(() => setCopiado(null), 1500);
     });
@@ -133,7 +140,7 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
         {/* Información del producto */}
         <div style={{flex: 1, minWidth: 0, overflow: "visible"}}>
           <div style={{fontSize: "11px", fontWeight: "bold", color: "#1e293b", marginBottom: "3px", lineHeight: "1.2", display: "flex", alignItems: "flex-start", gap: "4px", width: "100%"}}>
-            <span style={{flex: "0 1 auto", wordBreak: "break-word", overflow: "hidden"}}>{match.producto[columnasMatching.DESCRIPCION]}</span>
+            <span style={{flex: "0 1 auto", wordBreak: "break-word", overflow: "hidden"}}>{quitarAcentos(match.producto[columnasMatching.DESCRIPCION])}</span>
             <button
               onClick={(e) => copiarAlPortapapeles(e, match.producto[columnasMatching.DESCRIPCION], 'descripcion')}
               style={{
@@ -216,7 +223,7 @@ export function MatchScore({ match, columnasMatching, onSelect, isSelected, nume
               )}
             </div>
             <div>
-              <b>Marca:</b> {match.producto[columnasMatching.MARCA] || "—"} | 
+              <b>Marca:</b> {quitarAcentos(match.producto[columnasMatching.MARCA] || "—")} | 
               <b> Cantidad:</b> {match.producto[columnasMatching.CANTIDAD]} {match.producto[columnasMatching.MEDIDA]} | 
               <b> Formato:</b> {match.producto[columnasMatching.FORMATO] || "—"} | 
               <b> Unidades:</b> {match.producto[columnasMatching.UNIDADES] || "—"}

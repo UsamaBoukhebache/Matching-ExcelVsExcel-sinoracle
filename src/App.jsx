@@ -2208,7 +2208,7 @@ export default function App() {
                       </div>
                       <div style={{fontSize: "11px", fontWeight: "500", color: "#1e293b", marginBottom: "2px", lineHeight: "1.3"}}>
                         {(() => {
-                          const descripcion = producto[columnasReferencia.DESCRIPCION] || '';
+                          const descripcion = quitarAcentos(producto[columnasReferencia.DESCRIPCION] || '');
                           const maxLength = 35;
                           return descripcion.length > maxLength 
                             ? descripcion.substring(0, maxLength) + '...'
