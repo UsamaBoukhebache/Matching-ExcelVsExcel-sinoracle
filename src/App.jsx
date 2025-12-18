@@ -6,7 +6,8 @@ import { FileUploader } from "./components/FileUploader";
 import { ProductCard } from "./components/ProductCard";
 import { WeightAdjuster } from "./components/WeightAdjuster";
 import { MatchScore } from "./components/MatchScore";
-import Login from "./components/Login";
+import { useAuth } from "./components/AuthProvider";
+import { UserHeader } from "./components/UserHeader";
 import sessionService from "./services/sessionService";
 import { Notification, ConfirmDialog } from "./components/Notification";
 
@@ -290,17 +291,14 @@ function adivinarColumnas(cabecera) {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-  };
+  // Hook para obtener usuario autenticado
+  const user = useAuth();
 
   const inputFicheroReferencia = useRef(null);
   const inputFicheroMatching = useRef(null);
   const listaMatchesRef = useRef(null);
   const archivoSugerenciasPendiente = useRef(null); // Para subir sugerencias después de crear sesión
+  const creandoSesion = useRef(false); // Flag para evitar crear múltiples sesiones simultáneamente
   
   // Estado principal
   const [filasReferencia, setFilasReferencia] = useState([]);
@@ -575,8 +573,7 @@ export default function App() {
       setContadorNoMatches(0);
 
       // Crear sesión en BD si no existe
-      const userSession = localStorage.getItem('userSession');
-      if (!sesionActiva && userSession) {
+      if (!sesionActiva && user) {
         await crearNuevaSesion(json, colDetectadas, 'referencia', file.name);
       }
     };
@@ -602,12 +599,11 @@ export default function App() {
       setFilasMatching(json);
 
       // Subir archivo a BD
-      const userSession = localStorage.getItem('userSession');
-      if (sesionActiva && userSession) {
+      if (sesionActiva && user) {
         // Ya hay sesión activa, subir directamente
         console.log('📤 Subiendo archivo de sugerencias a sesión:', sesionActiva);
         await subirArchivoABD('sugerencias', file.name, json, colDetectadas);
-      } else if (userSession) {
+      } else if (user) {
         // No hay sesión activa aún, guardar para subir después
         console.log('💾 Guardando archivo de sugerencias para subir cuando se cree la sesión');
         archivoSugerenciasPendiente.current = {
@@ -1176,23 +1172,45 @@ export default function App() {
   // FUNCIONES DE PERSISTENCIA EN BASE DE DATOS
   // =====================================================
 
-  async function crearNuevaSesion(filasReferencia, columnasRef, tipo, nombreArchivo) {
+  async function crearNuevaSesion(filasRef = null, columnasRef = null, tipo = null, nombreArchivoParam = null) {
     try {
-      const userSession = JSON.parse(localStorage.getItem('userSession'));
-      if (!userSession) return;
+      // Evitar crear múltiples sesiones simultáneamente
+      if (creandoSesion.current) {
+        console.log('⏳ Ya se está creando una sesión, esperando...');
+        return;
+      }
+
+      if (!user) {
+        console.error('❌ No hay usuario autenticado');
+        mostrarNotificacion('Error: No hay usuario autenticado', 'error');
+        return;
+      }
+
+      // Usar parámetros si se proporcionan, si no usar los estados globales
+      const datosReferencia = filasRef || filasReferencia;
+      const columnasReferenciaData = columnasRef || columnasReferencia;
+      const nombreArchivo = nombreArchivoParam || 'archivo_referencia.xlsx';
+
+      if (!datosReferencia || datosReferencia.length === 0) {
+        mostrarNotificacion('Error: No hay datos de referencia para crear la sesión', 'error');
+        return;
+      }
+
+      creandoSesion.current = true; // Marcar que se está creando
+      console.log('🔨 Creando nueva sesión...');
 
       const nombreSesion = `Sesión ${new Date().toLocaleString('es-ES')}`;
       
       const result = await sessionService.createSession(
-        userSession.id,
+        user.id,
         nombreSesion,
         pesos,
-        filasReferencia.length
+        datosReferencia.length
       );
 
       if (result.success) {
         const nuevaSesionId = result.sesion_id;
-        console.log('✅ Sesión creada:', nuevaSesionId);
+        console.log('✅ Sesión creada con ID:', nuevaSesionId);
         setSesionActiva(nuevaSesionId);
         
         // Subir archivo de referencia usando el ID directamente (no esperar a que se actualice el estado)
@@ -1201,8 +1219,8 @@ export default function App() {
           nuevaSesionId,
           'referencia',
           nombreArchivo,
-          filasReferencia,
-          columnasRef
+          datosReferencia,
+          columnasReferenciaData
         );
         
         if (uploadResult.success) {
@@ -1214,10 +1232,17 @@ export default function App() {
         
         // Recargar lista de sesiones
         await cargarSesionesUsuario();
+        
+        // Mostrar notificación de éxito
+        mostrarNotificacion('✅ Sesión creada correctamente', 'success');
+        
+        return nuevaSesionId; // Devolver el ID de la sesión creada
       }
     } catch (error) {
       console.error('Error creando sesión:', error);
       mostrarNotificacion('Error al crear la sesión: ' + error.message, 'error');
+    } finally {
+      creandoSesion.current = false; // Resetear flag siempre
     }
   }
 
@@ -1289,10 +1314,12 @@ export default function App() {
 
   async function cargarSesionesUsuario() {
     try {
-      const userSession = JSON.parse(localStorage.getItem('userSession'));
-      if (!userSession) return;
+      if (!user) {
+        console.log('⚠️ No hay usuario autenticado, no se pueden cargar sesiones');
+        return;
+      }
 
-      const result = await sessionService.getSessions(userSession.id);
+      const result = await sessionService.getSessions(user.id);
       
       if (result.success) {
         setSesionesDisponibles(result.sesiones);
@@ -1406,18 +1433,39 @@ export default function App() {
   }
 
   async function sincronizarProgreso() {
-    if (!sesionActiva) return;
-
     try {
+      // Verificar que el usuario esté autenticado antes de hacer nada
+      if (!user) {
+        console.error('❌ Usuario no disponible aún, esperando autenticación...');
+        mostrarNotificacion('⏳ Esperando autenticación, intenta de nuevo', 'error');
+        return;
+      }
+
+      // Si no hay sesión activa, crear una nueva automáticamente
+      if (!sesionActiva) {
+        console.log('📝 No hay sesión activa, creando una nueva...');
+        const nuevaSesionId = await crearNuevaSesion();
+        
+        if (nuevaSesionId) {
+          console.log('✅ Sesión creada y datos guardados con ID:', nuevaSesionId);
+        } else {
+          console.log('⚠️ No se pudo crear la sesión');
+        }
+        return;
+      }
+
+      // Si ya hay sesión activa, solo sincronizar el progreso
       await sessionService.forceSync(sesionActiva, {
         indiceActual,
         productosMatcheados: contadorMatches,
         productosNoMatch: contadorNoMatches,
         estado: indiceActual >= filasReferencia.length ? 'completada' : 'en_progreso'
       });
-      console.log('💾 Progreso sincronizado');
+      console.log('💾 Progreso sincronizado en sesión:', sesionActiva);
+      mostrarNotificacion('✅ Progreso guardado', 'success');
     } catch (error) {
       console.error('Error sincronizando progreso:', error);
+      mostrarNotificacion('❌ Error al guardar: ' + error.message, 'error');
     }
   }
 
@@ -1467,15 +1515,10 @@ export default function App() {
     localStorage.removeItem('columnasReferencia');
     localStorage.removeItem('columnasMatching');
     
-    const userSession = localStorage.getItem('userSession');
     const savedMatches = localStorage.getItem('matchesSeleccionados');
     const savedIndiceActual = localStorage.getItem('indiceActual');
     const savedContadorMatches = localStorage.getItem('contadorMatches');
     const savedContadorNoMatches = localStorage.getItem('contadorNoMatches');
-
-    if (userSession) {
-      setIsAuthenticated(true);
-    }
 
     if (savedMatches) {
       const matchesMap = new Map(JSON.parse(savedMatches));
@@ -1510,35 +1553,31 @@ export default function App() {
     if (savedContadorNoMatches) {
       setContadorNoMatches(Number(savedContadorNoMatches));
     }
-
-    setIsLoading(false);
   }, []);
 
   // Guardar solo el progreso de la sesión (NO los datos de los archivos Excel)
   // Los datos de los archivos ya están en la base de datos
   useEffect(() => {
-    if (isAuthenticated) {
-      try {
-        // Solo guardar datos pequeños: matches, índices y contadores
-        localStorage.setItem('matchesSeleccionados', JSON.stringify(Array.from(matchesSeleccionados.entries())));
-        localStorage.setItem('indiceActual', indiceActual);
-        localStorage.setItem('contadorMatches', contadorMatches);
-        localStorage.setItem('contadorNoMatches', contadorNoMatches);
-        
-        // NO guardar filasReferencia, filasMatching, ni columnas (están en DB)
-        // Esto previene el error QuotaExceededError
-      } catch (error) {
-        if (error.name === 'QuotaExceededError') {
-          console.warn('⚠️ LocalStorage lleno. Solo se guardarán datos esenciales.');
-          // Intentar limpiar datos antiguos innecesarios
-          localStorage.removeItem('filasReferencia');
-          localStorage.removeItem('filasMatching');
-          localStorage.removeItem('columnasReferencia');
-          localStorage.removeItem('columnasMatching');
-        }
+    try {
+      // Solo guardar datos pequeños: matches, índices y contadores
+      localStorage.setItem('matchesSeleccionados', JSON.stringify(Array.from(matchesSeleccionados.entries())));
+      localStorage.setItem('indiceActual', indiceActual);
+      localStorage.setItem('contadorMatches', contadorMatches);
+      localStorage.setItem('contadorNoMatches', contadorNoMatches);
+      
+      // NO guardar filasReferencia, filasMatching, ni columnas (están en DB)
+      // Esto previene el error QuotaExceededError
+    } catch (error) {
+      if (error.name === 'QuotaExceededError') {
+        console.warn('⚠️ LocalStorage lleno. Solo se guardarán datos esenciales.');
+        // Intentar limpiar datos antiguos innecesarios
+        localStorage.removeItem('filasReferencia');
+        localStorage.removeItem('filasMatching');
+        localStorage.removeItem('columnasReferencia');
+        localStorage.removeItem('columnasMatching');
       }
     }
-  }, [isAuthenticated, matchesSeleccionados, indiceActual, contadorMatches, contadorNoMatches]);
+  }, [matchesSeleccionados, indiceActual, contadorMatches, contadorNoMatches]);
 
   // Scroll automático para posicionar el producto actual en la tabla de la izquierda
   useEffect(() => {
@@ -1591,12 +1630,13 @@ export default function App() {
     };
   }, [sesionActiva, indiceActual, contadorMatches, contadorNoMatches]);
 
-  // Cargar sesiones al autenticarse
+  // Cargar sesiones cuando el usuario esté autenticado
   useEffect(() => {
-    if (isAuthenticated) {
+    if (user) {
+      console.log('👤 Usuario autenticado, cargando sesiones:', user);
       cargarSesionesUsuario();
     }
-  }, [isAuthenticated]);
+  }, [user]);
 
   // Atajos de teclado para selección rápida
   useEffect(() => {
@@ -1646,31 +1686,17 @@ export default function App() {
     }
   }, [cantidadProductos]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('userSession');
-    // Limpiar también datos antiguos que pueden estar ocupando espacio
-    localStorage.removeItem('filasReferencia');
-    localStorage.removeItem('filasMatching');
-    localStorage.removeItem('columnasReferencia');
-    localStorage.removeItem('columnasMatching');
-    setIsAuthenticated(false);
-  };
-
-  if (isLoading) {
-    return <div style={{ textAlign: 'center', marginTop: '20%' }}>Cargando...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
   return (
-          <div style={{...styles.container, padding: "12px", maxHeight: "100vh", overflow: "hidden"}}>
+          <div style={{...styles.container, padding: "12px", minHeight: "100vh", overflowY: "auto"}}>
+      {/* Header con usuario autenticado y botón de logout */}
+      <UserHeader user={user} />
+      
       <div style={{
         display: "flex", 
         justifyContent: "space-between", 
         alignItems: "center", 
         marginBottom: "12px",
+        marginTop: "12px",
         padding: "8px 12px",
         backgroundColor: "white",
         borderRadius: "8px",
@@ -1683,22 +1709,6 @@ export default function App() {
           <h1 style={{...styles.title, margin: 0, fontSize: "18px"}}>
             🎯 Matching de Productos
           </h1>
-          {(() => {
-            const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
-            return userSession.nombre ? (
-              <span style={{
-                fontSize: "14px",
-                color: "#64748b",
-                fontWeight: "500",
-                padding: "4px 12px",
-                backgroundColor: "#f1f5f9",
-                borderRadius: "20px",
-                border: "1px solid #e2e8f0"
-              }}>
-                👤 {userSession.nombre}
-              </span>
-            ) : null;
-          })()}
         </div>
         
         <div style={{ display: "flex", gap: "8px" }}>
@@ -1758,38 +1768,22 @@ export default function App() {
           </button>
           <button
             onClick={sincronizarProgreso}
-            disabled={!sesionActiva}
+            disabled={!user || (!sesionActiva && matchesSeleccionados.size === 0)}
             style={{
-              background: sesionActiva ? "#28a745" : "#6c757d",
+              background: (user && (sesionActiva || matchesSeleccionados.size > 0)) ? "#28a745" : "#6c757d",
               color: "white",
               border: "none",
               padding: "6px 12px",
               borderRadius: "5px",
               fontSize: "13px",
               fontWeight: "bold",
-              cursor: sesionActiva ? "pointer" : "not-allowed",
+              cursor: (user && (sesionActiva || matchesSeleccionados.size > 0)) ? "pointer" : "not-allowed",
               transition: "all 0.2s ease",
-              opacity: sesionActiva ? 1 : 0.6
+              opacity: (user && (sesionActiva || matchesSeleccionados.size > 0)) ? 1 : 0.6
             }}
-            title="Guardar progreso actual en la base de datos"
+            title={!user ? "Esperando autenticación..." : (sesionActiva ? "Guardar progreso actual en la base de datos" : "Crear sesión y guardar matches")}
           >
             💾 Guardar
-          </button>
-          <button
-            onClick={handleLogout}
-            style={{
-              background: "#dc3545",
-              color: "white",
-              border: "none",
-              padding: "6px 12px",
-              borderRadius: "5px",
-              fontSize: "13px",
-              fontWeight: "bold",
-              cursor: "pointer",
-              transition: "all 0.2s ease"
-            }}
-          >
-            🔒 Cerrar
           </button>
         </div>
       </div>
@@ -1955,12 +1949,14 @@ export default function App() {
               fileCount={filasReferencia.length}
               onUpload={manejarFicheroReferencia}
               label="Productos a Matchear"
+              disabled={!user}
             />
             <FileUploader
               inputRef={inputFicheroMatching}
               fileCount={filasMatching.length}
               onUpload={manejarFicheroMatching}
               label="Catálogo/Base de Datos"
+              disabled={!user}
             />
           </div>
         </div>

@@ -5,8 +5,8 @@
 
 const API_BASE_URL = 
   import.meta.env.MODE === "development"
-    ? "https://www.mercadinamica.es/v2/matching-app/php" // Local en logroño
-    : "https://www.mercadinamica.net/matching-app/php"; // Producción IONOS
+    ? "http://localhost:5173/php" // Desarrollo local
+    : "https://www.mercadinamica.es/v2/matching_excelvsexcel/php"; // Producción en Logroño
 
 class SessionService {
   
