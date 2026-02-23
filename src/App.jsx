@@ -2047,42 +2047,120 @@ export default function App() {
                 {/* Botón para editar marca de productos filtrados */}
                 {busquedaLista && busquedaLista.trim() && (() => {
                   // Obtener productos filtrados con la búsqueda actual
-                  const productosFiltrados = filasReferencia.filter((producto) => {
-                    const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
-                    const marca = (producto[columnasReferencia.MARCA] || "").toString().toLowerCase();
-                    const terminoBusqueda = busquedaLista.trim().toLowerCase();
-                    return descripcion.includes(terminoBusqueda) || marca.includes(terminoBusqueda);
-                  });
+                  const productosFiltrados = filasReferencia
+                    .map((producto, idx) => ({producto, idx}))
+                    .filter(({producto}) => {
+                      const descripcion = (producto[columnasReferencia.DESCRIPCION] || "").toString().toLowerCase();
+                      const marca = (producto[columnasReferencia.MARCA] || "").toString().toLowerCase();
+                      const terminoBusqueda = busquedaLista.trim().toLowerCase();
+                      return descripcion.includes(terminoBusqueda) || marca.includes(terminoBusqueda);
+                    });
                   
                   // Verificar si todos tienen la misma marca
                   if (productosFiltrados.length > 0) {
-                    const marcas = [...new Set(productosFiltrados.map(p => p[columnasReferencia.MARCA]))];
-                    if (marcas.length === 1 && marcas[0]) {
-                      const marcaComun = marcas[0];
-                      return (
+                    const marcas = [...new Set(productosFiltrados.map(({producto}) => producto[columnasReferencia.MARCA]))];
+                    const todosLaMismaMarca = marcas.length === 1 && marcas[0];
+                    const marcaComun = todosLaMismaMarca ? marcas[0] : null;
+                    
+                    return (
+                      <>
+                        {todosLaMismaMarca && (
+                          <button
+                            onClick={() => abrirEdicionMarca(marcaComun, true, busquedaLista.trim())}
+                            style={{
+                              width: "100%",
+                              marginTop: "6px",
+                              padding: "6px 10px",
+                              fontSize: "11px",
+                              fontWeight: "600",
+                              backgroundColor: "#8b5cf6",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              transition: "all 0.2s ease"
+                            }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = "#7c3aed"}
+                            onMouseOut={(e) => e.target.style.backgroundColor = "#8b5cf6"}
+                            title={`Editar marca "${marcaComun}" SOLO para los ${productosFiltrados.length} producto(s) filtrado(s)`}
+                          >
+                            ✏️ Editar marca "{marcaComun}" ({productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''})
+                          </button>
+                        )}
+                        
+                        {/* Botón de No Match masivo */}
                         <button
-                          onClick={() => abrirEdicionMarca(marcaComun, true, busquedaLista.trim())}
+                          onClick={async () => {
+                            const confirmacion = await mostrarConfirmacion(
+                              `¿Marcar como NO MATCH los ${productosFiltrados.length} productos filtrados?\n\n` +
+                              `Esto marcará como NO MATCH todos los productos que coincidan con "${busquedaLista.trim()}".`,
+                              '❌ No Match Masivo'
+                            );
+                            
+                            if (!confirmacion) return;
+                            
+                            // Marcar todos los filtrados como NO MATCH
+                            const nuevosMatches = new Map(matchesSeleccionados);
+                            let contador = 0;
+                            
+                            for (const {idx} of productosFiltrados) {
+                              if (!matchesSeleccionados.has(idx)) {
+                                nuevosMatches.set(idx, {
+                                  codiprodpx: "",
+                                  esNoMatch: true,
+                                  tieneComentario: false,
+                                  esMultiple: false
+                                });
+                                contador++;
+                              }
+                            }
+                            
+                            setMatchesSeleccionados(nuevosMatches);
+                            
+                            // Actualizar contadores
+                            const nuevoContadorNoMatches = contadorNoMatches + contador;
+                            setContadorNoMatches(nuevoContadorNoMatches);
+                            
+                            // Guardar en BD si hay sesión activa
+                            if (sesionActiva) {
+                              try {
+                                for (const {idx} of productosFiltrados) {
+                                  if (!matchesSeleccionados.has(idx)) {
+                                    await sessionService.saveMatch(sesionActiva, idx, "", true, false);
+                                  }
+                                }
+                              } catch (error) {
+                                console.error('Error guardando matches masivos:', error);
+                              }
+                            }
+                            
+                            mostrarNotificacion(
+                              `✅ ${contador} productos marcados como NO MATCH`,
+                              'success',
+                              3000
+                            );
+                          }}
                           style={{
                             width: "100%",
                             marginTop: "6px",
                             padding: "6px 10px",
                             fontSize: "11px",
                             fontWeight: "600",
-                            backgroundColor: "#8b5cf6",
+                            backgroundColor: "#dc2626",
                             color: "white",
                             border: "none",
                             borderRadius: "4px",
                             cursor: "pointer",
                             transition: "all 0.2s ease"
                           }}
-                          onMouseOver={(e) => e.target.style.backgroundColor = "#7c3aed"}
-                          onMouseOut={(e) => e.target.style.backgroundColor = "#8b5cf6"}
-                          title={`Editar marca "${marcaComun}" SOLO para los ${productosFiltrados.length} producto(s) filtrado(s)`}
+                          onMouseOver={(e) => e.target.style.backgroundColor = "#b91c1c"}
+                          onMouseOut={(e) => e.target.style.backgroundColor = "#dc2626"}
+                          title={`Marcar como NO MATCH los ${productosFiltrados.length} productos filtrados`}
                         >
-                          ✏️ Editar marca "{marcaComun}" ({productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''})
+                          ❌ No Match ({productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''})
                         </button>
-                      );
-                    }
+                      </>
+                    );
                   }
                   return null;
                 })()}
@@ -2349,7 +2427,35 @@ export default function App() {
                         }
                       }}
                     />
-                    {busquedaActiva ? (
+                    <button
+                      onClick={ejecutarBusquedaManual}
+                      disabled={!busquedaManual.trim()}
+                      style={{
+                        backgroundColor: busquedaManual.trim() ? "#3b82f6" : "#e2e8f0",
+                        color: busquedaManual.trim() ? "white" : "#94a3b8",
+                        border: "none",
+                        padding: "4px 10px",
+                        borderRadius: "4px",
+                        cursor: busquedaManual.trim() ? "pointer" : "not-allowed",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseOver={(e) => {
+                        if (busquedaManual.trim()) {
+                          e.target.style.backgroundColor = "#2563eb";
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (busquedaManual.trim()) {
+                          e.target.style.backgroundColor = "#3b82f6";
+                        }
+                      }}
+                      title="Buscar productos (o presiona Enter)"
+                    >
+                      🔍
+                    </button>
+                    {busquedaActiva && (
                       <button
                         onClick={limpiarBusqueda}
                         style={{
@@ -2368,35 +2474,6 @@ export default function App() {
                         title="Limpiar búsqueda y volver a sugerencias automáticas"
                       >
                         ✕
-                      </button>
-                    ) : (
-                      <button
-                        onClick={ejecutarBusquedaManual}
-                        disabled={!busquedaManual.trim()}
-                        style={{
-                          backgroundColor: busquedaManual.trim() ? "#3b82f6" : "#e2e8f0",
-                          color: busquedaManual.trim() ? "white" : "#94a3b8",
-                          border: "none",
-                          padding: "4px 10px",
-                          borderRadius: "4px",
-                          cursor: busquedaManual.trim() ? "pointer" : "not-allowed",
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          transition: "all 0.2s ease"
-                        }}
-                        onMouseOver={(e) => {
-                          if (busquedaManual.trim()) {
-                            e.target.style.backgroundColor = "#2563eb";
-                          }
-                        }}
-                        onMouseOut={(e) => {
-                          if (busquedaManual.trim()) {
-                            e.target.style.backgroundColor = "#3b82f6";
-                          }
-                        }}
-                        title="Buscar productos (o presiona Enter)"
-                      >
-                        🔍
                       </button>
                     )}
                   </div>
